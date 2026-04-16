@@ -17,6 +17,7 @@ import { db } from "@/lib/firebase/client";
 import { useAuth } from "@/context/AuthContext";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { toast } from "sonner";
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -68,11 +69,16 @@ export function ChatRoom({ roomId }: ChatRoomProps) {
     // Listen to presence count
     const unsubscribePresence = onValue(roomPresenceRef, (snapshot) => {
       setPresenceCount(snapshot.exists() ? Object.keys(snapshot.val()).length : 0);
+    }, (error) => {
+      console.error("Presence error:", error);
+      toast.error("Error al sincronizar audiencia");
     });
 
     // Listen to total viewers count
     const unsubscribeTotal = onValue(totalViewersListRef, (snapshot) => {
       setTotalViewers(snapshot.exists() ? Object.keys(snapshot.val()).length : 0);
+    }, (error) => {
+      console.error("Viewers count error:", error);
     });
 
     return () => {
@@ -97,6 +103,9 @@ export function ChatRoom({ roomId }: ChatRoomProps) {
         }));
         setMessages(msgList);
       }
+    }, (error) => {
+      console.error("Chat fetch error:", error);
+      toast.error("Error al cargar el chat");
     });
 
     return () => unsubscribeChat();
@@ -113,16 +122,21 @@ export function ChatRoom({ roomId }: ChatRoomProps) {
     e.preventDefault();
     if (!newMessage.trim() || !user) return;
 
-    const messagesRef = ref(db, `rooms/${roomId}/messages`);
-    await push(messagesRef, {
-      senderId: user.uid,
-      senderName: user.displayName || "Anónimo",
-      text: newMessage,
-      timestamp: serverTimestamp(),
-      role: role,
-    });
+    try {
+      const messagesRef = ref(db, `rooms/${roomId}/messages`);
+      await push(messagesRef, {
+        senderId: user.uid,
+        senderName: user.displayName || "Anónimo",
+        text: newMessage,
+        timestamp: serverTimestamp(),
+        role: role,
+      });
 
-    setNewMessage("");
+      setNewMessage("");
+    } catch (error) {
+      console.error("Send message error:", error);
+      toast.error("No se pudo enviar el mensaje");
+    }
   };
 
   return (

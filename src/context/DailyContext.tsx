@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import DailyIframe, { DailyCall, DailyEventObject } from "@daily-co/daily-js";
 import { useAuth } from "./AuthContext";
+import { toast } from "sonner";
 
 interface DailyContextType {
   callObject: DailyCall | null;
@@ -77,7 +78,10 @@ export const DailyProvider = ({ children }: { children: React.ReactNode }) => {
       });
 
       const { token, error } = await response.json();
-      if (error) throw new Error(error);
+      if (error) {
+        toast.error(`Error al generar token: ${error}`);
+        throw new Error(error);
+      }
 
       // 2. Unirse a la sala usando el token
       const domain = process.env.NEXT_PUBLIC_DAILY_DOMAIN || "tu-dominio";
@@ -86,8 +90,17 @@ export const DailyProvider = ({ children }: { children: React.ReactNode }) => {
         token,
       });
 
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error joining Daily room:", err);
+      
+      // Manejar errores comunes de Daily
+      if (err.message?.includes("cam-mic")) {
+        toast.error("No se pudo acceder a la cámara o micrófono. Verificá los permisos del navegador.");
+      } else if (err.message?.includes("not-found")) {
+        toast.error("La sala especificada no existe.");
+      } else {
+        toast.error("Error inesperado al intentar unirse a la sala.");
+      }
     }
   };
 

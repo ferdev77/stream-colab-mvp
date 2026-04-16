@@ -13,6 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 import { Providers } from "./providers";
+import { Toaster } from "sonner";
+import ErrorBoundary from "@/components/common/ErrorBoundary";
 
 export const metadata: Metadata = {
   title: "Stream Colab MVP",
@@ -31,8 +33,11 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col bg-slate-950 text-slate-50">
         <Providers>
-          {children}
+          <ErrorBoundary>
+            {children}
+          </ErrorBoundary>
         </Providers>
+        <Toaster position="top-right" theme="dark" richColors closeButton />
       </body>
     </html>
   );
