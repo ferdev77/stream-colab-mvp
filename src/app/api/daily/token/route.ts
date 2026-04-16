@@ -45,6 +45,7 @@ export async function POST(req: NextRequest) {
       if (!createRoomResponse.ok) {
         const createError = await createRoomResponse.json();
         console.error("Error al crear sala:", createError);
+        throw new Error(createError.info || createError.error || "Error al crear la sala en Daily");
       }
     }
 
@@ -59,7 +60,7 @@ export async function POST(req: NextRequest) {
         properties: {
           room_name: roomName,
           is_owner: !!isOwner,
-          enable_publishing: !!isOwner, // Solo dueños pueden transmitir inicialmente
+          // Eliminada propiedad inválida 'enable_publishing' que causaba error 500
         },
       }),
     };
@@ -68,7 +69,8 @@ export async function POST(req: NextRequest) {
     const data = await response.json();
 
     if (!response.ok) {
-      throw new Error(data.error || "Failed to generate Daily token");
+      console.error("Daily API Error:", data);
+      throw new Error(data.info || data.error || "Failed to generate Daily token");
     }
 
     return NextResponse.json({ token: data.token });
