@@ -96,7 +96,7 @@ export const DailyProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       // 2. Unirse a la sala usando el token
-      const configuredDomain = process.env.NEXT_PUBLIC_DAILY_DOMAIN || "";
+      const configuredDomain = (process.env.NEXT_PUBLIC_DAILY_DOMAIN || "").trim();
       if (!configuredDomain) {
         throw new Error(
           "Falta NEXT_PUBLIC_DAILY_DOMAIN en .env.local (ej: tu-subdominio o tu-subdominio.daily.co)"
@@ -107,7 +107,10 @@ export const DailyProvider = ({ children }: { children: React.ReactNode }) => {
         ? configuredDomain
         : `https://${configuredDomain}`;
       const parsed = new URL(withProtocol);
-      const dailyHost = parsed.hostname;
+      const normalizedHost = parsed.hostname.trim().replace(/\.+$/, "");
+      const dailyHost = normalizedHost.includes(".")
+        ? normalizedHost
+        : `${normalizedHost}.daily.co`;
 
       if (!dailyHost) {
         throw new Error("NEXT_PUBLIC_DAILY_DOMAIN es inválido");
