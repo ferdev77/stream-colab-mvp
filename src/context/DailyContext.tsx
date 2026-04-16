@@ -97,15 +97,21 @@ export const DailyProvider = ({ children }: { children: React.ReactNode }) => {
 
       // 2. Unirse a la sala usando el token
       const configuredDomain = process.env.NEXT_PUBLIC_DAILY_DOMAIN || "";
-      const normalizedDomain = configuredDomain
-        .replace(/^https?:\/\//, "")
-        .replace(/\/+$/, "");
-      const dailyHost =
-        normalizedDomain.length === 0
-          ? "tu-dominio.daily.co"
-          : normalizedDomain.includes(".")
-            ? normalizedDomain
-            : `${normalizedDomain}.daily.co`;
+      if (!configuredDomain) {
+        throw new Error(
+          "Falta NEXT_PUBLIC_DAILY_DOMAIN en .env.local (ej: tu-subdominio o tu-subdominio.daily.co)"
+        );
+      }
+
+      const withProtocol = configuredDomain.includes("://")
+        ? configuredDomain
+        : `https://${configuredDomain}`;
+      const parsed = new URL(withProtocol);
+      const dailyHost = parsed.hostname;
+
+      if (!dailyHost) {
+        throw new Error("NEXT_PUBLIC_DAILY_DOMAIN es inválido");
+      }
 
       await callObject.join({
         url: `https://${dailyHost}/${roomName}`,
@@ -118,16 +124,21 @@ export const DailyProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
     } catch (error: unknown) {
+      const err = error as { message?: string; errorMsg?: string; error?: string };
+      const errorMessage = err.errorMsg || err.error || err.message || "unknown";
       console.error("Error joining Daily room:", error);
-      const err = error as Error;
       
       // Manejar errores comunes de Daily
-      if (err.message?.includes("cam-mic")) {
+      if (errorMessage.includes("cam-mic")) {
         toast.error("No se pudo acceder a la cámara o micrófono. Verificá los permisos del navegador.");
-      } else if (err.message?.includes("not-found")) {
+      } else if (errorMessage.includes("not-found")) {
         toast.error("La sala especificada no existe.");
+      } else if (errorMessage.includes("token") || errorMessage.includes("auth")) {
+        toast.error("Token inválido o dominio Daily mal configurado. Revisá NEXT_PUBLIC_DAILY_DOMAIN y DAILY_API_KEY.");
+      } else if (errorMessage.includes("NEXT_PUBLIC_DAILY_DOMAIN")) {
+        toast.error(errorMessage);
       } else {
-        toast.error("Error inesperado al intentar unirse a la sala.");
+        toast.error(`Error al unirse a la sala: ${errorMessage}`);
       }
     }
   };

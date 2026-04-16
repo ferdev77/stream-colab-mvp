@@ -16,9 +16,10 @@ interface VideoParticipant {
 interface VideoTileProps {
   participant: VideoParticipant;
   isLocal?: boolean;
+  isStreamer?: boolean;
 }
 
-export const VideoTile = ({ participant, isLocal = false }: VideoTileProps) => {
+export const VideoTile = ({ participant, isLocal = false, isStreamer = false }: VideoTileProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
 
@@ -79,6 +80,14 @@ export const VideoTile = ({ participant, isLocal = false }: VideoTileProps) => {
         <div className="absolute top-4 right-4">
           <div className="px-2 py-1 rounded bg-indigo-500 text-[10px] font-bold text-white uppercase tracking-wider">
             Local
+          </div>
+        </div>
+      )}
+
+      {!isLocal && isStreamer && (
+        <div className="absolute top-4 right-4">
+          <div className="px-2 py-1 rounded bg-emerald-500 text-[10px] font-bold text-slate-950 uppercase tracking-wider">
+            Streamer
           </div>
         </div>
       )}

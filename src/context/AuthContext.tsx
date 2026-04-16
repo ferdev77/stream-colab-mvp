@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { onAuthStateChanged, User } from "firebase/auth";
-import { ref, onValue, Unsubscribe } from "firebase/database";
+import { ref, onValue, set, Unsubscribe } from "firebase/database";
 import { auth, db } from "@/lib/firebase/client";
 import { toast } from "sonner";
 
@@ -40,10 +40,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         const roleRef = ref(db, `users/${currentUser.uid}/role`);
         unsubscribeRole = onValue(roleRef, (snapshot) => {
           const val = snapshot.val();
-          if (val) {
+          if (val === "streamer" || val === "audience") {
             setRole(val);
+          } else if (val == null) {
+            void set(roleRef, "audience")
+              .then(() => {
+                setRole("audience");
+              })
+              .catch((error) => {
+                console.error("Error al inicializar rol por defecto:", error);
+                toast.error("No se pudo inicializar el rol por defecto");
+                setRole(null);
+              });
           } else {
-            console.log("Rol no encontrado en DB, el usuario deberá elegir uno.");
+            toast.error("El rol del perfil es inválido. Revisa datos de usuario en RTDB.");
             setRole(null);
           }
           setLoading(false);

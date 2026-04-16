@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { 
   Video, 
@@ -10,7 +10,11 @@ import {
   PhoneOff, 
   Users, 
   LayoutGrid,
-  Radio
+  Radio,
+  PauseCircle,
+  PlayCircle,
+  WifiOff,
+  RefreshCw
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useDaily } from "@/context/DailyContext";
@@ -24,8 +28,23 @@ export default function RoomPage() {
   const { joinRoom, leaveRoom, isJoined, participants, callObject } = useDaily();
   const [isCamOn, setIsCamOn] = useState(true);
   const [isMicOn, setIsMicOn] = useState(true);
+  const [isStreamPaused, setIsStreamPaused] = useState(false);
+  const [stayOffline, setStayOffline] = useState(true);
+  const previousMediaState = useRef<{ cam: boolean; mic: boolean }>({ cam: true, mic: true });
   const effectiveCamOn = role === "streamer" ? isCamOn : false;
   const effectiveMicOn = role === "streamer" ? isMicOn : false;
+
+  const streamerNames = useMemo(() => {
+    return participants
+      .filter((participant) => {
+        const maybeOwner = (participant as { owner?: boolean }).owner;
+        const hasVideoTrack = Boolean(participant.tracks?.video?.persistentTrack);
+        const hasAudioTrack = Boolean(participant.tracks?.audio?.persistentTrack);
+        return maybeOwner || hasVideoTrack || hasAudioTrack;
+      })
+      .map((participant) => participant.user_name || "Streamer")
+      .filter((name, index, array) => array.indexOf(name) === index);
+  }, [participants]);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -38,18 +57,30 @@ export default function RoomPage() {
       return;
     }
 
-    if (user && role && !isJoined) {
+    if (user && role && !isJoined && !stayOffline) {
       joinRoom(id as string);
     }
-  }, [authLoading, user, role, id, isJoined, joinRoom, router]);
+  }, [authLoading, user, role, id, isJoined, stayOffline, joinRoom, router]);
 
   const handleLeave = async () => {
+    setStayOffline(false);
     await leaveRoom();
     router.push("/dashboard");
   };
 
+  const handleGoOffline = async () => {
+    setStayOffline(true);
+    await leaveRoom();
+  };
+
+  const handleReconnect = async () => {
+    setStayOffline(false);
+    await joinRoom(id as string);
+  };
+
   const toggleVideo = () => {
     if (!callObject || role !== "streamer") return;
+    if (isStreamPaused) return;
     const current = callObject.localVideo();
     callObject.setLocalVideo(!current);
     setIsCamOn(!current);
@@ -57,9 +88,33 @@ export default function RoomPage() {
 
   const toggleAudio = () => {
     if (!callObject || role !== "streamer") return;
+    if (isStreamPaused) return;
     const current = callObject.localAudio();
     callObject.setLocalAudio(!current);
     setIsMicOn(!current);
+  };
+
+  const togglePauseStream = () => {
+    if (!callObject || role !== "streamer") return;
+
+    if (!isStreamPaused) {
+      previousMediaState.current = {
+        cam: callObject.localVideo(),
+        mic: callObject.localAudio(),
+      };
+      callObject.setLocalVideo(false);
+      callObject.setLocalAudio(false);
+      setIsCamOn(false);
+      setIsMicOn(false);
+      setIsStreamPaused(true);
+      return;
+    }
+
+    callObject.setLocalVideo(previousMediaState.current.cam);
+    callObject.setLocalAudio(previousMediaState.current.mic);
+    setIsCamOn(previousMediaState.current.cam);
+    setIsMicOn(previousMediaState.current.mic);
+    setIsStreamPaused(false);
   };
 
   if (authLoading) {
@@ -82,6 +137,35 @@ export default function RoomPage() {
   }
 
   if (!isJoined) {
+    if (stayOffline) {
+      return (
+        <div className="flex-1 flex flex-col items-center justify-center bg-slate-950 px-6">
+          <div className="w-24 h-24 mb-6 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center">
+            <WifiOff className="w-10 h-10 text-amber-400" />
+          </div>
+          <h2 className="text-2xl font-semibold text-white mb-2 text-center">Estás offline en esta sala</h2>
+          <p className="text-slate-400 text-center max-w-xl mb-8">
+            Entraste en modo offline. Desde acá podés preparar todo y conectarte solo cuando vos quieras.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <button
+              onClick={handleReconnect}
+              className="px-5 py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold flex items-center justify-center gap-2"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Conectar stream
+            </button>
+            <button
+              onClick={handleLeave}
+              className="px-5 py-3 rounded-2xl bg-slate-900 border border-slate-700 hover:border-slate-600 text-slate-300 font-semibold"
+            >
+              Volver al dashboard
+            </button>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="flex-1 flex flex-col items-center justify-center bg-slate-950">
         <div className="relative w-24 h-24 mb-6">
@@ -119,6 +203,14 @@ export default function RoomPage() {
               <Users className="w-4 h-4 text-indigo-400" />
               <span className="text-xs font-medium">{participants.length} Online</span>
             </div>
+            <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900 border border-slate-800">
+              <Radio className="w-4 h-4 text-emerald-400" />
+              <span className="text-xs font-medium">
+                {streamerNames.length} Streameando
+                {streamerNames.length > 0 ? `: ${streamerNames.join(", ")}` : ""
+                }
+              </span>
+            </div>
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900 border border-slate-800">
               <LayoutGrid className="w-4 h-4 text-purple-400" />
               <span className="text-xs font-medium">Grid Mode</span>
@@ -132,7 +224,12 @@ export default function RoomPage() {
         {/* Video Grid */}
         <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 auto-rows-min gap-4 overflow-y-auto pr-2 custom-scrollbar">
           {participants.map((p) => (
-            <VideoTile key={p.user_id} participant={p} isLocal={p.local} />
+            <VideoTile
+              key={p.user_id}
+              participant={p}
+              isLocal={p.local}
+              isStreamer={streamerNames.includes(p.user_name || "Streamer")}
+            />
           ))}
           {participants.length === 0 && (
             <div className="col-span-full h-full flex items-center justify-center">
@@ -151,15 +248,33 @@ export default function RoomPage() {
       <footer className="h-24 bg-gradient-to-t from-slate-950 to-transparent flex items-center justify-center px-6 relative z-20">
         <div className="bg-slate-900/80 backdrop-blur-2xl border border-white/5 px-8 pt-4 pb-4 rounded-3xl shadow-2xl flex items-center gap-6 -translate-y-4">
           <button
+            onClick={togglePauseStream}
+            disabled={role !== "streamer"}
+            className={`p-4 rounded-2xl transition-all ${
+              role !== "streamer"
+                ? "opacity-30 cursor-not-allowed bg-slate-900 text-slate-600"
+                : isStreamPaused
+                  ? "bg-amber-500 text-slate-950 hover:bg-amber-400"
+                  : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+            }`}
+            title={isStreamPaused ? "Reanudar stream" : "Pausar stream"}
+          >
+            {isStreamPaused ? <PlayCircle className="w-6 h-6" /> : <PauseCircle className="w-6 h-6" />}
+          </button>
+
+          <button
             onClick={toggleAudio}
             disabled={role !== "streamer"}
             className={`p-4 rounded-2xl transition-all ${
               role !== "streamer"
                 ? "opacity-30 cursor-not-allowed bg-slate-900 text-slate-600"
-                : effectiveMicOn
+                : isStreamPaused
+                  ? "bg-slate-900 text-slate-600"
+                  : effectiveMicOn
                   ? "bg-slate-800 text-slate-300 hover:bg-slate-700"
                   : "bg-red-500 text-white"
             }`}
+            title="Encender o apagar micrófono"
           >
             {effectiveMicOn ? <Mic className="w-6 h-6" /> : <MicOff className="w-6 h-6" />}
           </button>
@@ -169,13 +284,24 @@ export default function RoomPage() {
             disabled={role !== "streamer"}
             className={`p-4 rounded-2xl transition-all ${
               role !== "streamer" ? "opacity-30 cursor-not-allowed bg-slate-900 text-slate-600" :
+              isStreamPaused ? "bg-slate-900 text-slate-600" :
               effectiveCamOn ? "bg-slate-800 text-slate-300 hover:bg-slate-700" : "bg-red-500 text-white"
             }`}
+            title="Encender o apagar cámara"
           >
             {effectiveCamOn ? <Video className="w-6 h-6" /> : <VideoOff className="w-6 h-6" />}
           </button>
 
           <div className="w-px h-10 bg-slate-800 mx-2" />
+
+          <button
+            onClick={handleGoOffline}
+            className="px-5 py-4 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold transition-all flex items-center gap-2 active:scale-95"
+            title="Desconectarte sin salir del panel"
+          >
+            <WifiOff className="w-5 h-5" />
+            <span className="hidden md:inline">Quedar offline</span>
+          </button>
 
           <button
             onClick={handleLeave}

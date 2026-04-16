@@ -68,6 +68,23 @@ async function getUserRoleFromRTDB(uid: string, idToken: string): Promise<AppRol
     throw new Error("No se pudo validar el rol de usuario");
   }
 
+  if (role == null) {
+    const fallbackResponse = await fetch(
+      `${FIREBASE_DATABASE_URL}/users/${uid}/role.json?auth=${encodeURIComponent(idToken)}`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify("audience"),
+      }
+    );
+
+    if (!fallbackResponse.ok) {
+      throw new Error("No se pudo inicializar el rol por defecto");
+    }
+
+    return "audience";
+  }
+
   if (role !== "streamer" && role !== "audience") {
     throw new Error("El usuario no tiene un rol válido");
   }
