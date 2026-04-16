@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { onValue, ref } from "firebase/database";
+import { onValue, ref, remove, serverTimestamp, set } from "firebase/database";
 import { 
   Video, 
   VideoOff, 
@@ -15,7 +15,8 @@ import {
   PauseCircle,
   PlayCircle,
   WifiOff,
-  RefreshCw
+  RefreshCw,
+  Link2
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useDaily } from "@/context/DailyContext";
@@ -26,6 +27,14 @@ import { db } from "@/lib/firebase/client";
 interface StreamerProfile {
   uid: string;
   name: string;
+}
+
+interface OrbitaSession {
+  active: boolean;
+  hostName: string;
+  guestName: string;
+  hostUid: string;
+  updatedAt: number;
 }
 
 export default function RoomPage() {
@@ -40,6 +49,10 @@ export default function RoomPage() {
   const [stayOffline, setStayOffline] = useState(true);
   const [streamerProfiles, setStreamerProfiles] = useState<StreamerProfile[]>([]);
   const [audienceNames, setAudienceNames] = useState<string[]>([]);
+  const [orbitaSession, setOrbitaSession] = useState<OrbitaSession | null>(null);
+  const [showOrbitaPicker, setShowOrbitaPicker] = useState(false);
+  const [selectedOrbitaGuestName, setSelectedOrbitaGuestName] = useState("");
+  const [selectedAudienceStreamerId, setSelectedAudienceStreamerId] = useState<string | null>(null);
   const previousMediaState = useRef<{ cam: boolean; mic: boolean }>({ cam: true, mic: true });
   const effectiveCamOn = role === "streamer" ? isCamOn : false;
   const effectiveMicOn = role === "streamer" ? isMicOn : false;
@@ -73,6 +86,57 @@ export default function RoomPage() {
       return streamerNames.includes(participantName);
     });
   }, [participants, role, streamerNames]);
+
+  const localParticipantName = useMemo(() => {
+    const localParticipant = participants.find((participant) => participant.local);
+    return localParticipant?.user_name || user?.displayName || "Streamer";
+  }, [participants, user]);
+
+  const liveStreamerParticipants = useMemo(() => {
+    return participants.filter((participant) => {
+      const participantName = participant.user_name || "Streamer";
+      return streamerNames.includes(participantName);
+    });
+  }, [participants, streamerNames]);
+
+  const orbitaFilteredParticipants = useMemo(() => {
+    if (!orbitaSession?.active) {
+      return liveStreamerParticipants;
+    }
+
+    return liveStreamerParticipants.filter((participant) => {
+      const participantName = participant.user_name || "Streamer";
+      return participantName === orbitaSession.hostName || participantName === orbitaSession.guestName;
+    });
+  }, [liveStreamerParticipants, orbitaSession]);
+
+  const selectedAudienceParticipant = useMemo(() => {
+    if (role !== "audience") {
+      return null;
+    }
+
+    return orbitaFilteredParticipants.find(
+      (participant) => participant.user_id === selectedAudienceStreamerId
+    ) || orbitaFilteredParticipants[0] || null;
+  }, [role, orbitaFilteredParticipants, selectedAudienceStreamerId]);
+
+  const orbitaGuestOptions = useMemo(() => {
+    return streamerStatusList
+      .filter((streamer) => streamer.isLive && streamer.name !== localParticipantName)
+      .map((streamer) => streamer.name);
+  }, [streamerStatusList, localParticipantName]);
+
+  const effectiveOrbitaGuestName = useMemo(() => {
+    if (orbitaGuestOptions.length === 0) {
+      return "";
+    }
+
+    if (orbitaGuestOptions.includes(selectedOrbitaGuestName)) {
+      return selectedOrbitaGuestName;
+    }
+
+    return orbitaGuestOptions[0];
+  }, [orbitaGuestOptions, selectedOrbitaGuestName]);
 
   useEffect(() => {
     const usersRef = ref(db, "users");
@@ -117,6 +181,32 @@ export default function RoomPage() {
   }, [roomId]);
 
   useEffect(() => {
+    const orbitaRef = ref(db, `rooms/${roomId}/orbita`);
+    const unsubscribeOrbita = onValue(orbitaRef, (snapshot) => {
+      if (!snapshot.exists()) {
+        setOrbitaSession(null);
+        return;
+      }
+
+      const data = snapshot.val() as Partial<OrbitaSession>;
+      if (!data.active || !data.hostName || !data.guestName || !data.hostUid) {
+        setOrbitaSession(null);
+        return;
+      }
+
+      setOrbitaSession({
+        active: true,
+        hostName: data.hostName,
+        guestName: data.guestName,
+        hostUid: data.hostUid,
+        updatedAt: typeof data.updatedAt === "number" ? data.updatedAt : Date.now(),
+      });
+    });
+
+    return () => unsubscribeOrbita();
+  }, [roomId]);
+
+  useEffect(() => {
     if (!authLoading && !user) {
       router.replace("/login");
       return;
@@ -147,6 +237,34 @@ export default function RoomPage() {
 
   const handleReconnect = () => {
     setStayOffline(false);
+  };
+
+  const handleStartOrbita = async () => {
+    if (!user || role !== "streamer") return;
+    if (!isJoined) {
+      handleReconnect();
+      return;
+    }
+
+    const guestName = effectiveOrbitaGuestName;
+    if (!guestName) return;
+
+    await set(ref(db, `rooms/${roomId}/orbita`), {
+      active: true,
+      hostName: localParticipantName,
+      guestName,
+      hostUid: user.uid,
+      updatedAt: serverTimestamp(),
+    });
+
+    setShowOrbitaPicker(false);
+  };
+
+  const handleStopOrbita = async () => {
+    if (!user || role !== "streamer") return;
+    if (orbitaSession?.hostUid !== user.uid) return;
+
+    await remove(ref(db, `rooms/${roomId}/orbita`));
   };
 
   const toggleVideo = () => {
@@ -221,6 +339,12 @@ export default function RoomPage() {
               <span className="w-2 h-2 rounded-full bg-emerald-500" />
               <span className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">En Vivo</span>
             </div>
+            {orbitaSession?.active && (
+              <div className="mt-1 inline-flex items-center gap-2 px-2 py-1 rounded-md border border-red-500/35 bg-red-500/15 text-[10px] font-bold uppercase tracking-wider text-red-300">
+                <Link2 className="w-3 h-3" />
+                Orbita: {orbitaSession.hostName} + {orbitaSession.guestName}
+              </div>
+            )}
           </div>
         </div>
 
@@ -278,7 +402,38 @@ export default function RoomPage() {
             </div>
           )}
 
-          {isJoined && visibleParticipants.map((p) => (
+          {isJoined && role === "audience" && selectedAudienceParticipant && (
+            <div className="col-span-full space-y-3">
+              <VideoTile
+                key={selectedAudienceParticipant.user_id}
+                participant={selectedAudienceParticipant}
+                isLocal={false}
+                isStreamer
+              />
+              {orbitaFilteredParticipants.length > 1 && (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {orbitaFilteredParticipants.map((participant) => {
+                    const isSelected = selectedAudienceParticipant.user_id === participant.user_id;
+                    return (
+                      <button
+                        key={participant.user_id}
+                        onClick={() => setSelectedAudienceStreamerId(participant.user_id)}
+                        className={`rounded-xl border p-2 transition-all text-left ${isSelected
+                          ? "border-red-400 bg-red-500/15"
+                          : "border-slate-700 bg-slate-900/70 hover:border-slate-500"
+                          }`}
+                      >
+                        <p className="text-xs font-semibold text-slate-200 truncate">{participant.user_name || "Streamer"}</p>
+                        <p className="text-[10px] text-slate-400 uppercase tracking-wider">{isSelected ? "Viendo ahora" : "Ver señal"}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {isJoined && role === "streamer" && visibleParticipants.map((p) => (
             <VideoTile
               key={p.user_id}
               participant={p}
@@ -286,11 +441,16 @@ export default function RoomPage() {
               isStreamer={streamerNames.includes(p.user_name || "Streamer")}
             />
           ))}
-          {isJoined && visibleParticipants.length === 0 && (
+
+          {isJoined && role === "audience" && orbitaFilteredParticipants.length === 0 && (
             <div className="col-span-full h-full flex items-center justify-center">
-              <p className="text-slate-500 italic">
-                {role === "audience" ? "Esperando a que un streamer salga al aire..." : "Esperando a los participantes..."}
-              </p>
+              <p className="text-slate-500 italic">Esperando a que un streamer salga al aire...</p>
+            </div>
+          )}
+
+          {isJoined && role === "streamer" && visibleParticipants.length === 0 && (
+            <div className="col-span-full h-full flex items-center justify-center">
+              <p className="text-slate-500 italic">Esperando a los participantes...</p>
             </div>
           )}
         </div>
@@ -322,6 +482,50 @@ export default function RoomPage() {
                 <h3 className="text-sm font-bold uppercase tracking-wider text-slate-200">Streamers</h3>
                 <span className="text-xs text-slate-400">{streamerStatusList.length} perfiles</span>
               </div>
+              {role === "streamer" && (
+                <div className="mb-3">
+                  {!orbitaSession?.active ? (
+                    <>
+                      <button
+                        onClick={() => setShowOrbitaPicker((previous) => !previous)}
+                        className="w-full rounded-xl border border-red-500/40 bg-red-500/15 px-3 py-2 text-xs font-bold uppercase tracking-wider text-red-300 hover:bg-red-500/20"
+                      >
+                        Entrar a la Orbita
+                      </button>
+                      {showOrbitaPicker && (
+                        <div className="mt-2 space-y-2 rounded-xl border border-slate-700 bg-slate-950/70 p-3">
+                          <p className="text-[11px] text-slate-400">Elegí streamer online para emitir en señal compartida.</p>
+                          <select
+                            value={effectiveOrbitaGuestName}
+                            onChange={(event) => setSelectedOrbitaGuestName(event.target.value)}
+                            className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-200"
+                          >
+                            {orbitaGuestOptions.length === 0 && <option value="">No hay streamers online</option>}
+                            {orbitaGuestOptions.map((name) => (
+                              <option key={name} value={name}>{name}</option>
+                            ))}
+                          </select>
+                          <button
+                            onClick={handleStartOrbita}
+                            disabled={orbitaGuestOptions.length === 0}
+                            className="w-full rounded-lg bg-emerald-500 px-3 py-2 text-xs font-bold text-slate-950 disabled:opacity-40"
+                          >
+                            Activar señal ORBITA
+                          </button>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <button
+                      onClick={handleStopOrbita}
+                      disabled={orbitaSession.hostUid !== user.uid}
+                      className="w-full rounded-xl border border-amber-400/30 bg-amber-500/15 px-3 py-2 text-xs font-bold uppercase tracking-wider text-amber-300 disabled:opacity-40"
+                    >
+                      {orbitaSession.hostUid === user.uid ? "Finalizar Orbita" : "Orbita en curso"}
+                    </button>
+                  )}
+                </div>
+              )}
               <div className="space-y-2 max-h-32 overflow-y-auto custom-scrollbar pr-1">
                 {streamerStatusList.map((streamer) => (
                   <div key={streamer.uid} className="flex items-center justify-between rounded-xl border border-slate-800/80 bg-slate-950/60 px-3 py-2">

@@ -3,8 +3,8 @@
     ".read": false,
     ".write": false,
     "users": {
+      ".read": "auth != null",
       "$uid": {
-        ".read": "auth != null && auth.uid === $uid",
         ".write": "auth != null && auth.uid === $uid",
         "name": {
           ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 100"
@@ -43,6 +43,10 @@
     },
     "rooms": {
       "$roomId": {
+        "orbita": {
+          ".read": "auth != null",
+          ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'streamer'"
+        },
         "stats": {
           ".read": "auth != null",
           "unique_viewers": {
