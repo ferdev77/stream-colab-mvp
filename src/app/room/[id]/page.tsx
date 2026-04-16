@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { onValue, ref } from "firebase/database";
 import { 
   Video, 
   VideoOff, 
@@ -20,16 +21,24 @@ import { useAuth } from "@/context/AuthContext";
 import { useDaily } from "@/context/DailyContext";
 import { VideoTile } from "@/components/room/VideoTile";
 import { ChatRoom } from "@/components/room/ChatRoom";
+import { db } from "@/lib/firebase/client";
+
+interface StreamerProfile {
+  uid: string;
+  name: string;
+}
 
 export default function RoomPage() {
   const { id } = useParams();
   const router = useRouter();
   const { user, role, loading: authLoading } = useAuth();
   const { joinRoom, leaveRoom, isJoined, participants, callObject } = useDaily();
+  const roomId = id as string;
   const [isCamOn, setIsCamOn] = useState(true);
   const [isMicOn, setIsMicOn] = useState(true);
   const [isStreamPaused, setIsStreamPaused] = useState(false);
   const [stayOffline, setStayOffline] = useState(true);
+  const [streamerProfiles, setStreamerProfiles] = useState<StreamerProfile[]>([]);
   const previousMediaState = useRef<{ cam: boolean; mic: boolean }>({ cam: true, mic: true });
   const effectiveCamOn = role === "streamer" ? isCamOn : false;
   const effectiveMicOn = role === "streamer" ? isMicOn : false;
@@ -46,6 +55,35 @@ export default function RoomPage() {
       .filter((name, index, array) => array.indexOf(name) === index);
   }, [participants]);
 
+  const streamerStatusList = useMemo(() => {
+    return streamerProfiles.map((streamer) => ({
+      ...streamer,
+      isLive: streamerNames.includes(streamer.name),
+    }));
+  }, [streamerProfiles, streamerNames]);
+
+  useEffect(() => {
+    const usersRef = ref(db, "users");
+    const unsubscribeUsers = onValue(usersRef, (snapshot) => {
+      if (!snapshot.exists()) {
+        setStreamerProfiles([]);
+        return;
+      }
+
+      const usersData = snapshot.val() as Record<string, { name?: string; role?: string }>;
+      const streamers = Object.entries(usersData)
+        .filter(([, value]) => value?.role === "streamer")
+        .map(([uid, value]) => ({
+          uid,
+          name: value?.name || "Streamer",
+        }));
+
+      setStreamerProfiles(streamers);
+    });
+
+    return () => unsubscribeUsers();
+  }, []);
+
   useEffect(() => {
     if (!authLoading && !user) {
       router.replace("/login");
@@ -57,10 +95,12 @@ export default function RoomPage() {
       return;
     }
 
-    if (user && role && !isJoined && !stayOffline) {
-      joinRoom(id as string);
+    const shouldJoin = role === "audience" || !stayOffline;
+
+    if (user && role && !isJoined && shouldJoin) {
+      joinRoom(roomId);
     }
-  }, [authLoading, user, role, id, isJoined, stayOffline, joinRoom, router]);
+  }, [authLoading, user, role, roomId, isJoined, stayOffline, joinRoom, router]);
 
   const handleLeave = async () => {
     setStayOffline(false);
@@ -73,9 +113,8 @@ export default function RoomPage() {
     await leaveRoom();
   };
 
-  const handleReconnect = async () => {
+  const handleReconnect = () => {
     setStayOffline(false);
-    await joinRoom(id as string);
   };
 
   const toggleVideo = () => {
@@ -136,50 +175,6 @@ export default function RoomPage() {
     return null;
   }
 
-  if (!isJoined) {
-    if (stayOffline) {
-      return (
-        <div className="flex-1 flex flex-col items-center justify-center bg-transparent px-6">
-          <div className="w-24 h-24 mb-6 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center">
-            <WifiOff className="w-10 h-10 text-amber-400" />
-          </div>
-          <h2 className="text-2xl font-semibold text-white mb-2 text-center">Estás offline en esta sala</h2>
-          <p className="text-slate-400 text-center max-w-xl mb-8">
-            Entraste en modo offline. Desde acá podés preparar todo y conectarte solo cuando vos quieras.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-3">
-            <button
-              onClick={handleReconnect}
-              className="px-5 py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold flex items-center justify-center gap-2"
-            >
-              <RefreshCw className="w-4 h-4" />
-              Conectar stream
-            </button>
-            <button
-              onClick={handleLeave}
-              className="px-5 py-3 rounded-2xl bg-slate-900 border border-slate-700 hover:border-slate-600 text-slate-300 font-semibold"
-            >
-              Volver al dashboard
-            </button>
-          </div>
-        </div>
-      );
-    }
-
-    return (
-      <div className="flex-1 flex flex-col items-center justify-center bg-transparent">
-        <div className="relative w-24 h-24 mb-6">
-          <div className="absolute inset-0 bg-indigo-500 rounded-full animate-ping opacity-20" />
-          <div className="relative bg-slate-900 rounded-full w-24 h-24 flex items-center justify-center border border-slate-800">
-            <Radio className="w-10 h-10 text-indigo-500 animate-pulse" />
-          </div>
-        </div>
-        <h2 className="text-xl font-semibold text-white mb-2">Conectando a la sala...</h2>
-        <p className="text-slate-500">Preparando transmisión colaborativa</p>
-      </div>
-    );
-  }
-
   return (
     <div className="flex-1 flex flex-col bg-transparent overflow-hidden h-screen">
       {/* Header Bar */}
@@ -206,9 +201,7 @@ export default function RoomPage() {
             <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900 border border-slate-800">
               <Radio className="w-4 h-4 text-emerald-400" />
               <span className="text-xs font-medium">
-                {streamerNames.length} Streameando
-                {streamerNames.length > 0 ? `: ${streamerNames.join(", ")}` : ""
-                }
+                {streamerStatusList.filter((streamer) => streamer.isLive).length} Al Aire
               </span>
             </div>
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900 border border-slate-800">
@@ -223,7 +216,35 @@ export default function RoomPage() {
       <main className="flex-1 relative flex flex-col md:flex-row p-4 gap-4 overflow-hidden">
         {/* Video Grid */}
         <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 auto-rows-min gap-4 overflow-y-auto pr-2 custom-scrollbar">
-          {participants.map((p) => (
+          {!isJoined && stayOffline && role === "streamer" && (
+            <div className="col-span-full h-full flex flex-col items-center justify-center rounded-3xl border border-amber-500/30 bg-slate-900/55 p-8 text-center">
+              <WifiOff className="w-10 h-10 text-amber-400 mb-3" />
+              <h3 className="text-white text-xl font-bold mb-2">Modo offline activado</h3>
+              <p className="text-slate-400 max-w-xl mb-5">Estás dentro del panel, pero tu transmisión no está conectada.</p>
+              <button
+                onClick={handleReconnect}
+                className="px-5 py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold flex items-center justify-center gap-2"
+              >
+                <RefreshCw className="w-4 h-4" />
+                Conectar stream
+              </button>
+            </div>
+          )}
+
+          {!isJoined && !stayOffline && (
+            <div className="col-span-full h-full flex flex-col items-center justify-center rounded-3xl border border-indigo-500/25 bg-slate-900/55 p-8 text-center">
+              <div className="relative w-20 h-20 mb-4">
+                <div className="absolute inset-0 bg-indigo-500 rounded-full animate-ping opacity-20" />
+                <div className="relative bg-slate-900 rounded-full w-20 h-20 flex items-center justify-center border border-slate-800">
+                  <Radio className="w-8 h-8 text-indigo-500 animate-pulse" />
+                </div>
+              </div>
+              <h3 className="text-white text-xl font-bold mb-2">Conectando transmisión...</h3>
+              <p className="text-slate-400 max-w-xl">Preparando audio, video y señal de sala.</p>
+            </div>
+          )}
+
+          {isJoined && participants.map((p) => (
             <VideoTile
               key={p.user_id}
               participant={p}
@@ -231,7 +252,7 @@ export default function RoomPage() {
               isStreamer={streamerNames.includes(p.user_name || "Streamer")}
             />
           ))}
-          {participants.length === 0 && (
+          {isJoined && participants.length === 0 && (
             <div className="col-span-full h-full flex items-center justify-center">
               <p className="text-slate-500 italic">Esperando a los participantes...</p>
             </div>
@@ -240,7 +261,33 @@ export default function RoomPage() {
 
         {/* Sidebar / Chat Area */}
         <div className="w-full md:w-80 lg:w-96 h-[400px] md:h-full shrink-0">
-          <ChatRoom roomId={id as string} />
+          <div className="h-full flex flex-col gap-3">
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/70 backdrop-blur-md p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-200">Streamers</h3>
+                <span className="text-xs text-slate-400">{streamerStatusList.length} perfiles</span>
+              </div>
+              <div className="space-y-2 max-h-32 overflow-y-auto custom-scrollbar pr-1">
+                {streamerStatusList.map((streamer) => (
+                  <div key={streamer.uid} className="flex items-center justify-between rounded-xl border border-slate-800/80 bg-slate-950/60 px-3 py-2">
+                    <span className="text-sm text-slate-200 truncate pr-2">{streamer.name}</span>
+                    <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md border ${streamer.isLive
+                      ? "bg-red-500/15 text-red-300 border-red-500/40 animate-pulse"
+                      : "bg-slate-800/80 text-slate-400 border-slate-700"
+                      }`}>
+                      {streamer.isLive ? "Al Aire" : "Offline"}
+                    </span>
+                  </div>
+                ))}
+                {streamerStatusList.length === 0 && (
+                  <p className="text-xs text-slate-500">No hay streamers registrados todavía.</p>
+                )}
+              </div>
+            </div>
+            <div className="flex-1 min-h-0">
+              <ChatRoom roomId={roomId} />
+            </div>
+          </div>
         </div>
       </main>
 
@@ -294,14 +341,19 @@ export default function RoomPage() {
 
           <div className="w-px h-10 bg-slate-800 mx-2" />
 
-          <button
-            onClick={handleGoOffline}
-            className="px-5 py-4 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold transition-all flex items-center gap-2 active:scale-95"
-            title="Desconectarte sin salir del panel"
-          >
-            <WifiOff className="w-5 h-5" />
-            <span className="hidden md:inline">Quedar offline</span>
-          </button>
+          {role === "streamer" && (
+            <button
+              onClick={isJoined ? handleGoOffline : handleReconnect}
+              className={`px-5 py-4 rounded-2xl font-bold transition-all flex items-center gap-2 active:scale-95 ${isJoined
+                ? "bg-amber-500 hover:bg-amber-400 text-slate-950"
+                : "bg-emerald-500 hover:bg-emerald-400 text-slate-950"
+                }`}
+              title="Conectar o desconectar sin salir del panel"
+            >
+              {isJoined ? <WifiOff className="w-5 h-5" /> : <RefreshCw className="w-5 h-5" />}
+              <span className="hidden md:inline">{isJoined ? "Quedar offline" : "Conectar stream"}</span>
+            </button>
+          )}
 
           <button
             onClick={handleLeave}

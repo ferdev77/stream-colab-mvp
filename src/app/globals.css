@@ -164,6 +164,39 @@ body {
   }
 }
 
+@keyframes cosmic-stars-twinkle {
+  0%,
+  100% {
+    opacity: 0.38;
+    filter: brightness(0.95);
+  }
+  25% {
+    opacity: 0.6;
+    filter: brightness(1.2);
+  }
+  50% {
+    opacity: 0.45;
+    filter: brightness(1);
+  }
+  75% {
+    opacity: 0.72;
+    filter: brightness(1.35);
+  }
+}
+
+@keyframes cosmic-stars-twinkle-soft {
+  0%,
+  100% {
+    opacity: 0.24;
+  }
+  40% {
+    opacity: 0.46;
+  }
+  70% {
+    opacity: 0.3;
+  }
+}
+
 @keyframes cosmic-signal-pass {
   0% {
     transform: scaleX(0.08);
@@ -194,26 +227,29 @@ body {
 
 .cosmic-bg {
   z-index: 0;
-  background: #020205;
+  background:
+    radial-gradient(circle at 50% 25%, rgba(15, 23, 42, 0.35), transparent 55%),
+    #010104;
 }
 
 .cosmic-nebula,
 .cosmic-stars,
 .cosmic-grid,
 .cosmic-signal,
-.cosmic-orbit {
+.cosmic-orbit,
+.cosmic-vignette {
   position: absolute;
   inset: 0;
 }
 
 .cosmic-nebula {
   background:
-    radial-gradient(circle at 50% 18%, rgba(239, 68, 68, 0.24), transparent 48%),
-    radial-gradient(circle at 86% 60%, rgba(251, 113, 133, 0.15), transparent 40%),
-    radial-gradient(circle at 12% 72%, rgba(249, 115, 22, 0.12), transparent 44%),
-    radial-gradient(circle at 42% 88%, rgba(236, 72, 153, 0.08), transparent 35%);
-  filter: blur(1px);
-  animation: orbit-nebula-pulse 9s ease-in-out infinite;
+    radial-gradient(circle at 48% 18%, rgba(239, 68, 68, 0.11), transparent 46%),
+    radial-gradient(circle at 86% 62%, rgba(251, 113, 133, 0.07), transparent 39%),
+    radial-gradient(circle at 12% 72%, rgba(249, 115, 22, 0.05), transparent 43%),
+    radial-gradient(circle at 42% 88%, rgba(59, 130, 246, 0.04), transparent 36%);
+  filter: blur(2px);
+  animation: orbit-nebula-pulse 11s ease-in-out infinite;
 }
 
 .cosmic-stars {
@@ -226,8 +262,20 @@ body {
     radial-gradient(1.5px 1.5px at 994px 338px, rgba(255, 255, 255, 0.75), transparent);
   background-repeat: repeat;
   background-size: 1200px 700px;
-  opacity: 0.66;
-  animation: cosmic-depth-drift 24s linear infinite;
+  opacity: 0.44;
+  animation: cosmic-depth-drift 28s linear infinite, cosmic-stars-twinkle 6.5s ease-in-out infinite;
+}
+
+.cosmic-stars-far {
+  opacity: 0.26;
+  filter: blur(0.2px);
+  background-size: 1500px 900px;
+  animation: cosmic-depth-drift 42s linear infinite, cosmic-stars-twinkle-soft 8.5s ease-in-out infinite;
+}
+
+.cosmic-stars-near {
+  opacity: 0.6;
+  background-size: 1050px 620px;
 }
 
 .cosmic-grid {
@@ -236,18 +284,18 @@ body {
     linear-gradient(90deg, rgba(248, 113, 113, 0.045) 1px, transparent 1px);
   background-size: 92px 92px;
   mask-image: radial-gradient(circle at center, black 45%, transparent 88%);
-  opacity: 0.26;
+  opacity: 0.11;
 }
 
 .cosmic-signal {
   top: auto;
   bottom: auto;
   height: 2px;
-  width: 280px;
-  background: linear-gradient(90deg, rgba(248, 113, 113, 0), rgba(248, 113, 113, 0.95), rgba(251, 146, 60, 0));
-  filter: drop-shadow(0 0 11px rgba(248, 113, 113, 0.85));
+  width: 240px;
+  background: linear-gradient(90deg, rgba(248, 113, 113, 0), rgba(248, 113, 113, 0.75), rgba(251, 146, 60, 0));
+  filter: drop-shadow(0 0 8px rgba(248, 113, 113, 0.55));
   transform-origin: left center;
-  animation: cosmic-signal-pass 4.6s ease-out infinite;
+  animation: cosmic-signal-pass 5.4s ease-out infinite;
 }
 
 .cosmic-signal-a {
@@ -265,16 +313,16 @@ body {
 .cosmic-signal-c {
   left: 43%;
   top: 14%;
-  width: 220px;
-  opacity: 0.6;
+  width: 180px;
+  opacity: 0.38;
   animation-delay: 2.2s;
 }
 
 .cosmic-orbit {
-  border: 1px solid rgba(248, 113, 113, 0.22);
+  border: 1px solid rgba(248, 113, 113, 0.14);
   border-radius: 999px;
-  box-shadow: 0 0 55px rgba(248, 113, 113, 0.14);
-  animation: cosmic-orbit-pulse 5.2s ease-out infinite;
+  box-shadow: 0 0 40px rgba(248, 113, 113, 0.09);
+  animation: cosmic-orbit-pulse 6.2s ease-out infinite;
 }
 
 .cosmic-orbit-a {
@@ -290,4 +338,8 @@ body {
   left: 7%;
   top: 72%;
   animation-delay: 1.2s;
+}
+
+.cosmic-vignette {
+  background: radial-gradient(circle at center, rgba(0, 0, 0, 0) 45%, rgba(0, 0, 0, 0.5) 100%);
 }

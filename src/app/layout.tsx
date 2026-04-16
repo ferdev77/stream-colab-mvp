@@ -34,13 +34,15 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col text-slate-50 overflow-x-hidden bg-transparent">
         <div aria-hidden className="fixed inset-0 pointer-events-none cosmic-bg">
           <div className="cosmic-nebula" />
-          <div className="cosmic-stars" />
+          <div className="cosmic-stars cosmic-stars-far" />
+          <div className="cosmic-stars cosmic-stars-near" />
           <div className="cosmic-grid" />
           <div className="cosmic-signal cosmic-signal-a" />
           <div className="cosmic-signal cosmic-signal-b" />
           <div className="cosmic-signal cosmic-signal-c" />
           <div className="cosmic-orbit cosmic-orbit-a" />
           <div className="cosmic-orbit cosmic-orbit-b" />
+          <div className="cosmic-vignette" />
         </div>
         <Providers>
           <ErrorBoundary>
