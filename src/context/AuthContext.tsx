@@ -39,11 +39,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         // Escuchar el rol del usuario en RTDB
         const roleRef = ref(db, `users/${currentUser.uid}/role`);
         unsubscribeRole = onValue(roleRef, (snapshot) => {
-          setRole(snapshot.val());
+          const val = snapshot.val();
+          if (val) {
+            setRole(val);
+          } else {
+            console.log("Rol no encontrado en DB, el usuario deberá elegir uno.");
+            setRole(null);
+          }
           setLoading(false);
         }, (error) => {
-          console.error("Error al leer rol:", error);
-          toast.error("Error al sincronizar perfil de usuario");
+          console.error("Error al leer rol (RTDB):", error);
+          // Solo mostrar error si no es un error de permisos común al desloguearse
+          if (error.message.includes("permission_denied")) {
+            toast.error("Error de permisos al sincronizar perfil");
+          } else {
+            toast.error("Error al sincronizar perfil de usuario");
+          }
           setLoading(false);
         });
       } else {

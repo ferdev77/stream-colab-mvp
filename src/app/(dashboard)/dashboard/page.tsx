@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { RadioTower, Users, ShieldCheck, ArrowRight, Loader2, LogOut } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { AuthService } from "@/service/auth";
+import { toast } from "sonner";
 
 export default function DashboardPage() {
   const { user, role, loading: authLoading } = useAuth();
@@ -14,11 +15,14 @@ export default function DashboardPage() {
   const handleRoleSelect = async (newRole: "streamer" | "audience") => {
     if (!user) return;
     setUpdating(true);
+    const toastId = toast.loading("Sincronizando perfil...");
     try {
       await AuthService.updateRole(user.uid, newRole);
+      toast.success(`Rol cambiado a ${newRole === "streamer" ? "Streamer" : "Audiencia"}`, { id: toastId });
       router.push(`/room/main-stage`);
     } catch (error) {
       console.error("Error al actualizar rol:", error);
+      toast.error("No se pudo conectar con el servidor. Reintenta.", { id: toastId });
     } finally {
       setUpdating(false);
     }
@@ -80,8 +84,17 @@ export default function DashboardPage() {
             </p>
             
             <div className="flex items-center text-indigo-400 font-semibold group-hover:gap-3 transition-all">
-              <span>Comenzar Transmisión</span>
-              <ArrowRight className="w-5 h-5 ml-2" />
+              {updating ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                  <span>Cargando...</span>
+                </>
+              ) : (
+                <>
+                  <span>Comenzar Transmisión</span>
+                  <ArrowRight className="w-5 h-5 ml-2" />
+                </>
+              )}
             </div>
           </button>
 
