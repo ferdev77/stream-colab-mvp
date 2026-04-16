@@ -1,6 +1,62 @@
 {
   "rules": {
-    ".read": "auth != null",
-    ".write": "auth != null"
+    ".read": false,
+    ".write": false,
+    "users": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid",
+        "name": {
+          ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 100"
+        },
+        "email": {
+          ".validate": "newData.isString() && newData.val().length > 3 && newData.val().length <= 320"
+        },
+        "role": {
+          ".validate": "newData.val() === 'streamer' || newData.val() === 'audience'"
+        },
+        "createdAt": {
+          ".validate": "newData.isNumber()"
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    },
+    "presence": {
+      "$roomId": {
+        ".read": "auth != null",
+        "$uid": {
+          ".write": "auth != null && auth.uid === $uid",
+          ".validate": "!newData.exists() || (newData.hasChildren(['name', 'role', 'joinedAt', 'lastSeen']) && newData.child('name').isString() && newData.child('name').val().length > 0 && newData.child('name').val().length <= 100 && (newData.child('role').val() === 'streamer' || newData.child('role').val() === 'audience') && newData.child('joinedAt').isNumber() && newData.child('lastSeen').isNumber())"
+        }
+      }
+    },
+    "chat": {
+      "$roomId": {
+        ".read": "auth != null",
+        "$messageId": {
+          ".write": "auth != null && !data.exists()",
+          ".validate": "newData.hasChildren(['senderId', 'senderName', 'text', 'timestamp', 'role']) && newData.child('senderId').val() === auth.uid && newData.child('senderName').isString() && newData.child('senderName').val().length > 0 && newData.child('senderName').val().length <= 100 && newData.child('text').isString() && newData.child('text').val().length > 0 && newData.child('text').val().length <= 1000 && newData.child('timestamp').isNumber() && (newData.child('role').val() === 'streamer' || newData.child('role').val() === 'audience')"
+        }
+      }
+    },
+    "rooms": {
+      "$roomId": {
+        "stats": {
+          ".read": "auth != null",
+          "unique_viewers": {
+            "$uid": {
+              ".write": "auth != null && auth.uid === $uid && !data.exists()",
+              ".validate": "newData.isNumber()"
+            }
+          },
+          "total_viewers": {
+            ".read": "auth != null",
+            ".write": "auth != null && newData.isNumber() && (!data.exists() ? newData.val() === 1 : (data.isNumber() && newData.val() === data.val() + 1))"
+          }
+        }
+      }
+    }
   }
 }

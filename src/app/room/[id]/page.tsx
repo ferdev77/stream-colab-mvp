@@ -24,12 +24,24 @@ export default function RoomPage() {
   const { joinRoom, leaveRoom, isJoined, participants, callObject } = useDaily();
   const [isCamOn, setIsCamOn] = useState(true);
   const [isMicOn, setIsMicOn] = useState(true);
+  const effectiveCamOn = role === "streamer" ? isCamOn : false;
+  const effectiveMicOn = role === "streamer" ? isMicOn : false;
 
   useEffect(() => {
-    if (user && !isJoined) {
+    if (!authLoading && !user) {
+      router.replace("/login");
+      return;
+    }
+
+    if (!authLoading && user && !role) {
+      router.replace("/dashboard");
+      return;
+    }
+
+    if (user && role && !isJoined) {
       joinRoom(id as string);
     }
-  }, [user, id, isJoined, joinRoom]);
+  }, [authLoading, user, role, id, isJoined, joinRoom, router]);
 
   const handleLeave = async () => {
     await leaveRoom();
@@ -37,20 +49,39 @@ export default function RoomPage() {
   };
 
   const toggleVideo = () => {
-    if (!callObject) return;
+    if (!callObject || role !== "streamer") return;
     const current = callObject.localVideo();
     callObject.setLocalVideo(!current);
     setIsCamOn(!current);
   };
 
   const toggleAudio = () => {
-    if (!callObject) return;
+    if (!callObject || role !== "streamer") return;
     const current = callObject.localAudio();
     callObject.setLocalAudio(!current);
     setIsMicOn(!current);
   };
 
-  if (authLoading || !isJoined) {
+  if (authLoading) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center bg-slate-950">
+        <div className="relative w-24 h-24 mb-6">
+          <div className="absolute inset-0 bg-indigo-500 rounded-full animate-ping opacity-20" />
+          <div className="relative bg-slate-900 rounded-full w-24 h-24 flex items-center justify-center border border-slate-800">
+            <Radio className="w-10 h-10 text-indigo-500 animate-pulse" />
+          </div>
+        </div>
+        <h2 className="text-xl font-semibold text-white mb-2">Conectando a la sala...</h2>
+        <p className="text-slate-500">Preparando transmisión colaborativa</p>
+      </div>
+    );
+  }
+
+  if (!user || !role) {
+    return null;
+  }
+
+  if (!isJoined) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center bg-slate-950">
         <div className="relative w-24 h-24 mb-6">
@@ -121,11 +152,16 @@ export default function RoomPage() {
         <div className="bg-slate-900/80 backdrop-blur-2xl border border-white/5 px-8 pt-4 pb-4 rounded-3xl shadow-2xl flex items-center gap-6 -translate-y-4">
           <button
             onClick={toggleAudio}
+            disabled={role !== "streamer"}
             className={`p-4 rounded-2xl transition-all ${
-              isMicOn ? "bg-slate-800 text-slate-300 hover:bg-slate-700" : "bg-red-500 text-white"
+              role !== "streamer"
+                ? "opacity-30 cursor-not-allowed bg-slate-900 text-slate-600"
+                : effectiveMicOn
+                  ? "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                  : "bg-red-500 text-white"
             }`}
           >
-            {isMicOn ? <Mic className="w-6 h-6" /> : <MicOff className="w-6 h-6" />}
+            {effectiveMicOn ? <Mic className="w-6 h-6" /> : <MicOff className="w-6 h-6" />}
           </button>
           
           <button
@@ -133,10 +169,10 @@ export default function RoomPage() {
             disabled={role !== "streamer"}
             className={`p-4 rounded-2xl transition-all ${
               role !== "streamer" ? "opacity-30 cursor-not-allowed bg-slate-900 text-slate-600" :
-              isCamOn ? "bg-slate-800 text-slate-300 hover:bg-slate-700" : "bg-red-500 text-white"
+              effectiveCamOn ? "bg-slate-800 text-slate-300 hover:bg-slate-700" : "bg-red-500 text-white"
             }`}
           >
-            {isCamOn ? <Video className="w-6 h-6" /> : <VideoOff className="w-6 h-6" />}
+            {effectiveCamOn ? <Video className="w-6 h-6" /> : <VideoOff className="w-6 h-6" />}
           </button>
 
           <div className="w-px h-10 bg-slate-800 mx-2" />

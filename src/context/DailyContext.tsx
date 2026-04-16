@@ -27,17 +27,14 @@ export const DailyProvider = ({ children }: { children: React.ReactNode }) => {
   const [isJoined, setIsJoined] = useState(false);
   const [participants, setParticipants] = useState<DailyParticipant[]>([]);
 
-  // Inicializar el objeto de llamada una sola vez
   useEffect(() => {
-    if (!callObject) {
-      const co = DailyIframe.createCallObject();
-      setCallObject(co);
-    }
+    const co = DailyIframe.createCallObject();
+    setCallObject(co);
 
     return () => {
-      callObject?.destroy();
+      co.destroy();
     };
-  }, [callObject]);
+  }, []);
 
   const updateParticipants = useCallback(() => {
     if (!callObject) return;
@@ -48,15 +45,25 @@ export const DailyProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     if (!callObject) return;
 
-    callObject.on("joined-meeting", () => setIsJoined(true));
-    callObject.on("left-meeting", () => setIsJoined(false));
+    const handleJoined = () => {
+      setIsJoined(true);
+      updateParticipants();
+    };
+
+    const handleLeft = () => {
+      setIsJoined(false);
+      setParticipants([]);
+    };
+
+    callObject.on("joined-meeting", handleJoined);
+    callObject.on("left-meeting", handleLeft);
     callObject.on("participant-joined", updateParticipants);
     callObject.on("participant-updated", updateParticipants);
     callObject.on("participant-left", updateParticipants);
 
     return () => {
-      callObject.off("joined-meeting", () => setIsJoined(true));
-      callObject.off("left-meeting", () => setIsJoined(false));
+      callObject.off("joined-meeting", handleJoined);
+      callObject.off("left-meeting", handleLeft);
       callObject.off("participant-joined", updateParticipants);
       callObject.off("participant-updated", updateParticipants);
       callObject.off("participant-left", updateParticipants);
@@ -64,31 +71,51 @@ export const DailyProvider = ({ children }: { children: React.ReactNode }) => {
   }, [callObject, updateParticipants]);
 
   const joinRoom = async (roomName: string) => {
-    if (!callObject || !user) return;
+    if (!callObject || !user || !role) return;
 
     try {
+      const firebaseIdToken = await user.getIdToken();
+
       // 1. Obtener Token del Backend
       const response = await fetch("/api/daily/token", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${firebaseIdToken}`,
+        },
         body: JSON.stringify({
           roomName,
-          isOwner: role === "streamer"
         }),
       });
 
-      const { token, error } = await response.json();
-      if (error) {
-        toast.error(`Error al generar token: ${error}`);
-        throw new Error(error);
+      const payload = (await response.json()) as { token?: string; error?: string };
+      if (!response.ok || payload.error || !payload.token) {
+        const message = payload.error || "Error al generar token de Daily";
+        toast.error(`Error al generar token: ${message}`);
+        throw new Error(message);
       }
 
       // 2. Unirse a la sala usando el token
-      const domain = process.env.NEXT_PUBLIC_DAILY_DOMAIN || "tu-dominio";
+      const configuredDomain = process.env.NEXT_PUBLIC_DAILY_DOMAIN || "";
+      const normalizedDomain = configuredDomain
+        .replace(/^https?:\/\//, "")
+        .replace(/\/+$/, "");
+      const dailyHost =
+        normalizedDomain.length === 0
+          ? "tu-dominio.daily.co"
+          : normalizedDomain.includes(".")
+            ? normalizedDomain
+            : `${normalizedDomain}.daily.co`;
+
       await callObject.join({
-        url: `https://${domain}.daily.co/${roomName}`,
-        token,
+        url: `https://${dailyHost}/${roomName}`,
+        token: payload.token,
       });
+
+      if (role !== "streamer") {
+        callObject.setLocalVideo(false);
+        callObject.setLocalAudio(false);
+      }
 
     } catch (error: unknown) {
       console.error("Error joining Daily room:", error);

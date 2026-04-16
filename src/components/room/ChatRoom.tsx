@@ -2,13 +2,15 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { Send, MessageCircle, User } from "lucide-react";
-import { 
-  ref, 
-  push, 
-  onValue, 
-  serverTimestamp, 
-  query, 
+import {
+  ref,
+  push,
+  onValue,
+  serverTimestamp,
+  query,
   limitToLast,
+  get,
+  runTransaction,
   onDisconnect,
   set,
   remove
@@ -48,23 +50,51 @@ export function ChatRoom({ roomId }: ChatRoomProps) {
   useEffect(() => {
     if (!user || !roomId) return;
 
-    const presenceRef = ref(db, `rooms/${roomId}/presence/${user.uid}`);
-    const roomPresenceRef = ref(db, `rooms/${roomId}/presence`);
-    const totalViewersRef = ref(db, `rooms/${roomId}/stats/uniqueViewers/${user.uid}`);
-    const totalViewersListRef = ref(db, `rooms/${roomId}/stats/uniqueViewers`);
+    const connectedRef = ref(db, ".info/connected");
+    const presenceRef = ref(db, `presence/${roomId}/${user.uid}`);
+    const roomPresenceRef = ref(db, `presence/${roomId}`);
+    const uniqueViewerRef = ref(db, `rooms/${roomId}/stats/unique_viewers/${user.uid}`);
+    const totalViewersRef = ref(db, `rooms/${roomId}/stats/total_viewers`);
 
-    // Set presence
-    set(presenceRef, {
-      name: user.displayName || "Anónimo",
-      role: role,
-      lastActive: serverTimestamp(),
+    const markViewerSeen = async () => {
+      const seenSnapshot = await get(uniqueViewerRef);
+      if (seenSnapshot.exists()) {
+        return;
+      }
+
+      await set(uniqueViewerRef, serverTimestamp());
+      await runTransaction(totalViewersRef, (currentValue) => {
+        if (typeof currentValue === "number") {
+          return currentValue + 1;
+        }
+
+        return 1;
+      });
+    };
+
+    markViewerSeen().catch((error) => {
+      console.error("Viewers count error:", error);
     });
 
-    // Mark as visited (for total viewers)
-    set(totalViewersRef, true);
+    const unsubscribeConnected = onValue(connectedRef, (snapshot) => {
+      if (snapshot.val() !== true) {
+        return;
+      }
 
-    // Remove on disconnect
-    onDisconnect(presenceRef).remove();
+      void (async () => {
+        await set(presenceRef, {
+          name: user.displayName || "Anónimo",
+          role,
+          joinedAt: serverTimestamp(),
+          lastSeen: serverTimestamp(),
+        });
+
+        onDisconnect(presenceRef).remove();
+      })();
+    }, (error) => {
+      console.error("Presence connection error:", error);
+      toast.error("Error al sincronizar audiencia");
+    });
 
     // Listen to presence count
     const unsubscribePresence = onValue(roomPresenceRef, (snapshot) => {
@@ -75,13 +105,15 @@ export function ChatRoom({ roomId }: ChatRoomProps) {
     });
 
     // Listen to total viewers count
-    const unsubscribeTotal = onValue(totalViewersListRef, (snapshot) => {
-      setTotalViewers(snapshot.exists() ? Object.keys(snapshot.val()).length : 0);
+    const unsubscribeTotal = onValue(totalViewersRef, (snapshot) => {
+      const value = snapshot.val();
+      setTotalViewers(typeof value === "number" ? value : 0);
     }, (error) => {
       console.error("Viewers count error:", error);
     });
 
     return () => {
+      unsubscribeConnected();
       unsubscribePresence();
       unsubscribeTotal();
       remove(presenceRef);
@@ -92,7 +124,7 @@ export function ChatRoom({ roomId }: ChatRoomProps) {
   useEffect(() => {
     if (!roomId) return;
 
-    const messagesRef = query(ref(db, `rooms/${roomId}/messages`), limitToLast(50));
+    const messagesRef = query(ref(db, `chat/${roomId}`), limitToLast(50));
     
     const unsubscribeChat = onValue(messagesRef, (snapshot) => {
       const data = snapshot.val();
@@ -104,10 +136,12 @@ export function ChatRoom({ roomId }: ChatRoomProps) {
           timestamp: number;
           role: string;
         }
-        const msgList = Object.entries(data).map(([id, val]) => ({
-          id,
-          ...(val as ChatMessage),
-        }));
+        const msgList = Object.entries(data)
+          .map(([id, val]) => ({
+            id,
+            ...(val as ChatMessage),
+          }))
+          .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
         setMessages(msgList);
       }
     }, (error) => {
@@ -130,7 +164,7 @@ export function ChatRoom({ roomId }: ChatRoomProps) {
     if (!newMessage.trim() || !user) return;
 
     try {
-      const messagesRef = ref(db, `rooms/${roomId}/messages`);
+      const messagesRef = ref(db, `chat/${roomId}`);
       await push(messagesRef, {
         senderId: user.uid,
         senderName: user.displayName || "Anónimo",
