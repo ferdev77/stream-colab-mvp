@@ -39,6 +39,7 @@ export default function RoomPage() {
   const [isStreamPaused, setIsStreamPaused] = useState(false);
   const [stayOffline, setStayOffline] = useState(true);
   const [streamerProfiles, setStreamerProfiles] = useState<StreamerProfile[]>([]);
+  const [audienceNames, setAudienceNames] = useState<string[]>([]);
   const previousMediaState = useRef<{ cam: boolean; mic: boolean }>({ cam: true, mic: true });
   const effectiveCamOn = role === "streamer" ? isCamOn : false;
   const effectiveMicOn = role === "streamer" ? isMicOn : false;
@@ -62,6 +63,17 @@ export default function RoomPage() {
     }));
   }, [streamerProfiles, streamerNames]);
 
+  const visibleParticipants = useMemo(() => {
+    if (role !== "audience") {
+      return participants;
+    }
+
+    return participants.filter((participant) => {
+      const participantName = participant.user_name || "Streamer";
+      return streamerNames.includes(participantName);
+    });
+  }, [participants, role, streamerNames]);
+
   useEffect(() => {
     const usersRef = ref(db, "users");
     const unsubscribeUsers = onValue(usersRef, (snapshot) => {
@@ -83,6 +95,26 @@ export default function RoomPage() {
 
     return () => unsubscribeUsers();
   }, []);
+
+  useEffect(() => {
+    const presenceRef = ref(db, `presence/${roomId}`);
+    const unsubscribePresence = onValue(presenceRef, (snapshot) => {
+      if (!snapshot.exists()) {
+        setAudienceNames([]);
+        return;
+      }
+
+      const presenceData = snapshot.val() as Record<string, { name?: string; role?: string }>;
+      const viewers = Object.values(presenceData)
+        .filter((entry) => entry?.role === "audience")
+        .map((entry) => entry?.name || "Audiencia")
+        .filter((name, index, array) => array.indexOf(name) === index);
+
+      setAudienceNames(viewers);
+    });
+
+    return () => unsubscribePresence();
+  }, [roomId]);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -195,13 +227,15 @@ export default function RoomPage() {
         <div className="flex items-center gap-6">
           <div className="hidden md:flex items-center gap-4 text-slate-400">
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900 border border-slate-800">
-              <Users className="w-4 h-4 text-indigo-400" />
-              <span className="text-xs font-medium">{participants.length} Online</span>
-            </div>
-            <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900 border border-slate-800">
-              <Radio className="w-4 h-4 text-emerald-400" />
+              <Radio className="w-4 h-4 text-red-400" />
               <span className="text-xs font-medium">
-                {streamerStatusList.filter((streamer) => streamer.isLive).length} Al Aire
+                {streamerStatusList.filter((streamer) => streamer.isLive).length} Streamers en vivo
+              </span>
+            </div>
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900 border border-slate-800">
+              <Users className="w-4 h-4 text-indigo-400" />
+              <span className="text-xs font-medium">
+                {audienceNames.length} Audiencia conectada
               </span>
             </div>
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900 border border-slate-800">
@@ -244,7 +278,7 @@ export default function RoomPage() {
             </div>
           )}
 
-          {isJoined && participants.map((p) => (
+          {isJoined && visibleParticipants.map((p) => (
             <VideoTile
               key={p.user_id}
               participant={p}
@@ -252,9 +286,11 @@ export default function RoomPage() {
               isStreamer={streamerNames.includes(p.user_name || "Streamer")}
             />
           ))}
-          {isJoined && participants.length === 0 && (
+          {isJoined && visibleParticipants.length === 0 && (
             <div className="col-span-full h-full flex items-center justify-center">
-              <p className="text-slate-500 italic">Esperando a los participantes...</p>
+              <p className="text-slate-500 italic">
+                {role === "audience" ? "Esperando a que un streamer salga al aire..." : "Esperando a los participantes..."}
+              </p>
             </div>
           )}
         </div>
@@ -262,6 +298,25 @@ export default function RoomPage() {
         {/* Sidebar / Chat Area */}
         <div className="w-full md:w-80 lg:w-96 h-[400px] md:h-full shrink-0">
           <div className="h-full flex flex-col gap-3">
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/70 backdrop-blur-md p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-200">Audiencia</h3>
+                <span className="text-xs text-slate-400">{audienceNames.length} viewers</span>
+              </div>
+              <div className="space-y-1.5 max-h-28 overflow-y-auto custom-scrollbar pr-1">
+                {audienceNames.map((viewerName) => (
+                  <div
+                    key={viewerName}
+                    className="rounded-lg border border-slate-800/80 bg-slate-950/60 px-3 py-2 text-sm text-slate-200"
+                  >
+                    {viewerName}
+                  </div>
+                ))}
+                {audienceNames.length === 0 && (
+                  <p className="text-xs text-slate-500">Sin audiencia conectada por ahora.</p>
+                )}
+              </div>
+            </div>
             <div className="rounded-2xl border border-slate-800 bg-slate-900/70 backdrop-blur-md p-4">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-bold uppercase tracking-wider text-slate-200">Streamers</h3>
