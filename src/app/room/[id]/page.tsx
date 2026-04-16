@@ -416,20 +416,58 @@ export default function RoomPage() {
               </div>
 
               <div className="relative grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <div className="rounded-2xl border border-red-500/30 bg-slate-950/70 p-3">
+                <div className="relative rounded-2xl border border-red-500/30 bg-slate-950/70 p-3 overflow-hidden">
+                  <div className="absolute left-2 top-2 w-4 h-4 border-l border-t border-red-400/60" />
+                  <div className="absolute right-2 top-2 w-4 h-4 border-r border-t border-red-400/60" />
+                  <div className="absolute left-2 bottom-2 w-4 h-4 border-l border-b border-red-400/60" />
+                  <div className="absolute right-2 bottom-2 w-4 h-4 border-r border-b border-red-400/60" />
                   <div className="flex items-center justify-between mb-3">
                     <p className="text-sm font-bold text-white truncate pr-2">{orbitaSession?.hostName || "Streamer A"}</p>
                     <span className="text-[10px] uppercase tracking-wider font-bold text-red-300">Canal A</span>
                   </div>
                   <VideoTile participant={orbitaHostParticipant} isLocal={orbitaHostParticipant.local} isStreamer />
+                  <div className="mt-3 rounded-xl border border-red-500/25 bg-black/50 px-3 py-2">
+                    <div className="flex items-center justify-between text-[10px] uppercase tracking-wider">
+                      <span className="text-red-300 font-bold">Orbita 105.1</span>
+                      <span className="px-2 py-0.5 rounded bg-red-500/25 text-red-200 font-bold">ON AIR</span>
+                    </div>
+                    <div className="mt-2 flex items-end gap-1 h-6">
+                      {[20, 45, 28, 60, 34, 50, 18, 55, 30, 42].map((height, index) => (
+                        <span
+                          key={`eq-a-${index}`}
+                          className="w-1 rounded-sm bg-gradient-to-t from-red-500 to-orange-300 animate-pulse"
+                          style={{ height: `${height}%`, animationDelay: `${index * 0.08}s` }}
+                        />
+                      ))}
+                    </div>
+                  </div>
                 </div>
 
-                <div className="rounded-2xl border border-red-500/30 bg-slate-950/70 p-3">
+                <div className="relative rounded-2xl border border-red-500/30 bg-slate-950/70 p-3 overflow-hidden">
+                  <div className="absolute left-2 top-2 w-4 h-4 border-l border-t border-red-400/60" />
+                  <div className="absolute right-2 top-2 w-4 h-4 border-r border-t border-red-400/60" />
+                  <div className="absolute left-2 bottom-2 w-4 h-4 border-l border-b border-red-400/60" />
+                  <div className="absolute right-2 bottom-2 w-4 h-4 border-r border-b border-red-400/60" />
                   <div className="flex items-center justify-between mb-3">
                     <p className="text-sm font-bold text-white truncate pr-2">{orbitaSession?.guestName || "Streamer B"}</p>
                     <span className="text-[10px] uppercase tracking-wider font-bold text-red-300">Canal B</span>
                   </div>
                   <VideoTile participant={orbitaGuestParticipant} isLocal={orbitaGuestParticipant.local} isStreamer />
+                  <div className="mt-3 rounded-xl border border-red-500/25 bg-black/50 px-3 py-2">
+                    <div className="flex items-center justify-between text-[10px] uppercase tracking-wider">
+                      <span className="text-red-300 font-bold">Orbita 97.7</span>
+                      <span className="px-2 py-0.5 rounded bg-red-500/25 text-red-200 font-bold">ON AIR</span>
+                    </div>
+                    <div className="mt-2 flex items-end gap-1 h-6">
+                      {[22, 38, 26, 52, 33, 58, 20, 47, 31, 44].map((height, index) => (
+                        <span
+                          key={`eq-b-${index}`}
+                          className="w-1 rounded-sm bg-gradient-to-t from-red-500 to-orange-300 animate-pulse"
+                          style={{ height: `${height}%`, animationDelay: `${index * 0.08}s` }}
+                        />
+                      ))}
+                    </div>
+                  </div>
                 </div>
 
                 <div className="hidden lg:block absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-28 h-[2px] bg-gradient-to-r from-red-500/0 via-orange-400 to-red-500/0 shadow-[0_0_18px_rgba(248,113,113,0.8)]" />
