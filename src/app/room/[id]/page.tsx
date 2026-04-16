@@ -120,6 +120,34 @@ export default function RoomPage() {
     ) || orbitaFilteredParticipants[0] || null;
   }, [role, orbitaFilteredParticipants, selectedAudienceStreamerId]);
 
+  const orbitaHostParticipant = useMemo(() => {
+    if (!orbitaSession?.active) return null;
+    return liveStreamerParticipants.find(
+      (participant) => (participant.user_name || "Streamer") === orbitaSession.hostName
+    ) || null;
+  }, [liveStreamerParticipants, orbitaSession]);
+
+  const orbitaGuestParticipant = useMemo(() => {
+    if (!orbitaSession?.active) return null;
+    return liveStreamerParticipants.find(
+      (participant) => (participant.user_name || "Streamer") === orbitaSession.guestName
+    ) || null;
+  }, [liveStreamerParticipants, orbitaSession]);
+
+  const isOrbitaDualLive = Boolean(
+    isJoined && orbitaSession?.active && orbitaHostParticipant && orbitaGuestParticipant
+  );
+
+  const individualStreamerStatusList = useMemo(() => {
+    if (!orbitaSession?.active) {
+      return streamerStatusList;
+    }
+
+    return streamerStatusList.filter(
+      (streamer) => streamer.name !== orbitaSession.hostName && streamer.name !== orbitaSession.guestName
+    );
+  }, [streamerStatusList, orbitaSession]);
+
   const orbitaGuestOptions = useMemo(() => {
     return streamerStatusList
       .filter((streamer) => streamer.isLive && streamer.name !== localParticipantName)
@@ -374,6 +402,41 @@ export default function RoomPage() {
       <main className="flex-1 relative flex flex-col md:flex-row p-4 gap-4 overflow-hidden">
         {/* Video Grid */}
         <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 auto-rows-min gap-4 overflow-y-auto pr-2 custom-scrollbar">
+          {isOrbitaDualLive && orbitaHostParticipant && orbitaGuestParticipant && (
+            <div className="col-span-full relative rounded-3xl border border-red-500/25 bg-black/40 p-4 md:p-5 backdrop-blur-md overflow-hidden">
+              <div className="absolute inset-0 pointer-events-none orbit-stars opacity-30" />
+              <div className="relative z-10 mb-4 flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-red-300">Modo ORBITA</p>
+                  <h3 className="text-white text-lg font-bold">Dual panel en vivo</h3>
+                </div>
+                <div className="px-3 py-1 rounded-full border border-red-400/40 bg-red-500/15 text-[10px] uppercase tracking-wider font-bold text-red-200 animate-pulse">
+                  ON AIR
+                </div>
+              </div>
+
+              <div className="relative grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div className="rounded-2xl border border-red-500/30 bg-slate-950/70 p-3">
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-sm font-bold text-white truncate pr-2">{orbitaSession?.hostName || "Streamer A"}</p>
+                    <span className="text-[10px] uppercase tracking-wider font-bold text-red-300">Canal A</span>
+                  </div>
+                  <VideoTile participant={orbitaHostParticipant} isLocal={orbitaHostParticipant.local} isStreamer />
+                </div>
+
+                <div className="rounded-2xl border border-red-500/30 bg-slate-950/70 p-3">
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-sm font-bold text-white truncate pr-2">{orbitaSession?.guestName || "Streamer B"}</p>
+                    <span className="text-[10px] uppercase tracking-wider font-bold text-red-300">Canal B</span>
+                  </div>
+                  <VideoTile participant={orbitaGuestParticipant} isLocal={orbitaGuestParticipant.local} isStreamer />
+                </div>
+
+                <div className="hidden lg:block absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-28 h-[2px] bg-gradient-to-r from-red-500/0 via-orange-400 to-red-500/0 shadow-[0_0_18px_rgba(248,113,113,0.8)]" />
+              </div>
+            </div>
+          )}
+
           {!isJoined && stayOffline && role === "streamer" && (
             <div className="col-span-full h-full flex flex-col items-center justify-center rounded-3xl border border-amber-500/30 bg-slate-900/55 p-8 text-center">
               <WifiOff className="w-10 h-10 text-amber-400 mb-3" />
@@ -402,7 +465,7 @@ export default function RoomPage() {
             </div>
           )}
 
-          {isJoined && role === "audience" && selectedAudienceParticipant && (
+          {isJoined && !isOrbitaDualLive && role === "audience" && selectedAudienceParticipant && (
             <div className="col-span-full space-y-3">
               <VideoTile
                 key={selectedAudienceParticipant.user_id}
@@ -433,7 +496,7 @@ export default function RoomPage() {
             </div>
           )}
 
-          {isJoined && role === "streamer" && visibleParticipants.map((p) => (
+          {isJoined && !isOrbitaDualLive && role === "streamer" && visibleParticipants.map((p) => (
             <VideoTile
               key={p.user_id}
               participant={p}
@@ -442,13 +505,13 @@ export default function RoomPage() {
             />
           ))}
 
-          {isJoined && role === "audience" && orbitaFilteredParticipants.length === 0 && (
+          {isJoined && !isOrbitaDualLive && role === "audience" && orbitaFilteredParticipants.length === 0 && (
             <div className="col-span-full h-full flex items-center justify-center">
               <p className="text-slate-500 italic">Esperando a que un streamer salga al aire...</p>
             </div>
           )}
 
-          {isJoined && role === "streamer" && visibleParticipants.length === 0 && (
+          {isJoined && !isOrbitaDualLive && role === "streamer" && visibleParticipants.length === 0 && (
             <div className="col-span-full h-full flex items-center justify-center">
               <p className="text-slate-500 italic">Esperando a los participantes...</p>
             </div>
@@ -481,6 +544,31 @@ export default function RoomPage() {
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-bold uppercase tracking-wider text-slate-200">Streamers</h3>
                 <span className="text-xs text-slate-400">{streamerStatusList.length} perfiles</span>
+              </div>
+              <div className="mb-3 rounded-xl border border-red-500/30 bg-red-500/10 p-3">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-red-300 mb-1">Modo ORBITA</p>
+                <p className="text-xs text-slate-300 mb-2">Señal compartida entre streamers conectados.</p>
+                {orbitaSession?.active ? (
+                  <button
+                    onClick={() => {
+                      if (role === "audience") {
+                        setSelectedAudienceStreamerId(orbitaHostParticipant?.user_id || null);
+                      }
+                    }}
+                    className="w-full rounded-lg border border-red-400/40 bg-red-500/15 px-3 py-2 text-left"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs font-bold text-red-200 uppercase tracking-wider">ORBITA EN VIVO</p>
+                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md border border-red-400/40 bg-red-500/20 text-red-200 animate-pulse">Al Aire</span>
+                    </div>
+                    <p className="text-xs text-slate-200 mt-1 truncate">{orbitaSession.hostName} + {orbitaSession.guestName}</p>
+                    <p className="text-[10px] text-slate-400 mt-1 uppercase tracking-wider">{role === "audience" ? "Ver canal ORBITA" : "Canal ORBITA activo"}</p>
+                  </button>
+                ) : (
+                  <div className="rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2">
+                    <p className="text-xs text-slate-400">No hay señal ORBITA activa.</p>
+                  </div>
+                )}
               </div>
               {role === "streamer" && (
                 <div className="mb-3">
@@ -526,8 +614,9 @@ export default function RoomPage() {
                   )}
                 </div>
               )}
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2">Canales individuales</p>
               <div className="space-y-2 max-h-32 overflow-y-auto custom-scrollbar pr-1">
-                {streamerStatusList.map((streamer) => (
+                {individualStreamerStatusList.map((streamer) => (
                   <div key={streamer.uid} className="flex items-center justify-between rounded-xl border border-slate-800/80 bg-slate-950/60 px-3 py-2">
                     <span className="text-sm text-slate-200 truncate pr-2">{streamer.name}</span>
                     <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md border ${streamer.isLive
@@ -538,8 +627,8 @@ export default function RoomPage() {
                     </span>
                   </div>
                 ))}
-                {streamerStatusList.length === 0 && (
-                  <p className="text-xs text-slate-500">No hay streamers registrados todavía.</p>
+                {individualStreamerStatusList.length === 0 && (
+                  <p className="text-xs text-slate-500">No hay canales individuales disponibles.</p>
                 )}
               </div>
             </div>
