@@ -17,8 +17,8 @@ import { Toaster } from "sonner";
 import ErrorBoundary from "@/components/common/ErrorBoundary";
 
 export const metadata: Metadata = {
-  title: "Stream Colab MVP",
-  description: "Plataforma de streaming colaborativo de validación técnica",
+  title: "ORBITA",
+  description: "ORBITA · Red federal de streamers",
 };
 
 export default function RootLayout({

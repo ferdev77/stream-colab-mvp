@@ -40,7 +40,7 @@ export default function LoginPage() {
             <LogIn className="w-8 h-8 text-white" />
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-white mb-2">Bienvenido de nuevo</h1>
-          <p className="text-slate-400">Ingresa a la plataforma de streaming colaborativo</p>
+          <p className="text-slate-400">Ingresa a ORBITA, red federal de streamers</p>
         </div>
 
         {/* Card */}

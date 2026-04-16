@@ -42,7 +42,7 @@ export default function RegisterPage() {
             <UserPlus className="w-8 h-8 text-white" />
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-white mb-2">Crea tu cuenta</h1>
-          <p className="text-slate-400">Únete a la nueva era del streaming colaborativo</p>
+          <p className="text-slate-400">Sumate a ORBITA, red federal de streamers</p>
         </div>
 
         {/* Card */}
