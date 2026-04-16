@@ -31,10 +31,22 @@ export default function RootLayout({
       lang="es"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-slate-950 text-slate-50">
+      <body className="min-h-full flex flex-col text-slate-50 overflow-x-hidden bg-transparent">
+        <div aria-hidden className="fixed inset-0 pointer-events-none cosmic-bg">
+          <div className="cosmic-nebula" />
+          <div className="cosmic-stars" />
+          <div className="cosmic-grid" />
+          <div className="cosmic-signal cosmic-signal-a" />
+          <div className="cosmic-signal cosmic-signal-b" />
+          <div className="cosmic-signal cosmic-signal-c" />
+          <div className="cosmic-orbit cosmic-orbit-a" />
+          <div className="cosmic-orbit cosmic-orbit-b" />
+        </div>
         <Providers>
           <ErrorBoundary>
-            {children}
+            <div className="relative z-10 min-h-full flex flex-1 flex-col">
+              {children}
+            </div>
           </ErrorBoundary>
         </Providers>
         <Toaster position="top-right" theme="dark" richColors closeButton />

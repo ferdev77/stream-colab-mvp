@@ -34,7 +34,7 @@ export default function RegisterPage() {
   };
 
   return (
-    <main className="flex-1 flex items-center justify-center p-6 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-black">
+    <main className="flex-1 flex items-center justify-center p-6 bg-transparent">
       <div className="w-full max-w-md">
         {/* Logo / Title Area */}
         <div className="text-center mb-8">

@@ -119,7 +119,7 @@ export default function RoomPage() {
 
   if (authLoading) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center bg-slate-950">
+      <div className="flex-1 flex flex-col items-center justify-center bg-transparent">
         <div className="relative w-24 h-24 mb-6">
           <div className="absolute inset-0 bg-indigo-500 rounded-full animate-ping opacity-20" />
           <div className="relative bg-slate-900 rounded-full w-24 h-24 flex items-center justify-center border border-slate-800">
@@ -139,7 +139,7 @@ export default function RoomPage() {
   if (!isJoined) {
     if (stayOffline) {
       return (
-        <div className="flex-1 flex flex-col items-center justify-center bg-slate-950 px-6">
+        <div className="flex-1 flex flex-col items-center justify-center bg-transparent px-6">
           <div className="w-24 h-24 mb-6 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center">
             <WifiOff className="w-10 h-10 text-amber-400" />
           </div>
@@ -167,7 +167,7 @@ export default function RoomPage() {
     }
 
     return (
-      <div className="flex-1 flex flex-col items-center justify-center bg-slate-950">
+      <div className="flex-1 flex flex-col items-center justify-center bg-transparent">
         <div className="relative w-24 h-24 mb-6">
           <div className="absolute inset-0 bg-indigo-500 rounded-full animate-ping opacity-20" />
           <div className="relative bg-slate-900 rounded-full w-24 h-24 flex items-center justify-center border border-slate-800">
@@ -181,7 +181,7 @@ export default function RoomPage() {
   }
 
   return (
-    <div className="flex-1 flex flex-col bg-black overflow-hidden h-screen">
+    <div className="flex-1 flex flex-col bg-transparent overflow-hidden h-screen">
       {/* Header Bar */}
       <header className="h-16 border-b border-slate-800 bg-slate-950/50 backdrop-blur-md flex items-center justify-between px-6 z-20">
         <div className="flex items-center gap-4">

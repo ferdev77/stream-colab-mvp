@@ -47,7 +47,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <main className="flex-1 flex flex-col items-center justify-center p-6 bg-slate-950">
+    <main className="flex-1 flex flex-col items-center justify-center p-6 bg-transparent">
       <div className="w-full max-w-4xl">
         {/* Header Section */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">

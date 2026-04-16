@@ -28,13 +28,7 @@ export default function LandingPage() {
   }, [user, router]);
 
   return (
-    <div className="relative flex-1 flex flex-col overflow-x-hidden bg-[#040406] text-slate-200">
-      <div className="pointer-events-none absolute inset-0 orbit-universe" />
-      <div className="pointer-events-none absolute inset-0 orbit-stars" />
-      <div className="pointer-events-none absolute inset-0 orbit-grid" />
-      <div className="pointer-events-none absolute left-[8%] top-[30%] h-[2px] w-72 origin-left orbit-electric" />
-      <div className="pointer-events-none absolute right-[10%] top-[56%] h-[2px] w-60 origin-right orbit-electric-delayed" />
-      <div className="pointer-events-none absolute left-[45%] top-[18%] h-[2px] w-44 orbit-electric-soft" />
+    <div className="relative flex-1 flex flex-col overflow-x-hidden text-slate-200">
 
       {/* Navigation */}
       <nav className="fixed top-0 w-full z-50 border-b border-red-500/20 bg-black/35 px-6 py-4 backdrop-blur-xl">
