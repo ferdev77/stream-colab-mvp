@@ -23,6 +23,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useDaily } from "@/context/DailyContext";
 import { VideoTile } from "@/components/room/VideoTile";
 import { ChatRoom } from "@/components/room/ChatRoom";
+import { OrbitaSignal } from "@/components/room/OrbitaSignal";
 import { db } from "@/lib/firebase/client";
 
 interface StreamerProfile {
@@ -847,14 +848,116 @@ export default function RoomPage() {
             </div>
           )}
 
-          {role === "audience" && isAudiencePreviewOpen && (
+          {role === "audience" && isAudiencePreviewOpen && audiencePreviewMode === "orbita" && (
+            <div className="col-span-full h-[93vh] min-h-[560px] relative overflow-hidden">
+              <button
+                onClick={() => setIsAudiencePreviewOpen(false)}
+                className="absolute top-2 left-2 z-30 px-4 py-2 rounded-xl bg-red-600/90 hover:bg-red-500 text-white font-bold text-sm"
+              >
+                Salir
+              </button>
+
+              <div className="absolute inset-0 orbit-stars opacity-25 pointer-events-none" />
+
+              <div className="relative h-full w-full flex items-center px-3 md:px-6">
+                <div className="w-full relative grid grid-cols-1 lg:grid-cols-[minmax(280px,420px)_1fr_minmax(280px,420px)] gap-6 lg:gap-3 items-center">
+                    <div className="w-full max-w-[420px] justify-self-start border border-red-500/35 bg-black/40 p-3 orbita-panel-shell orbita-panel-a lg:col-start-1">
+                      <div className="orbita-crt-noise" />
+                      <div className="orbita-sweep-line" />
+                      <div className="flex items-center justify-between mb-2 px-1">
+                        <p className="text-[10px] uppercase tracking-wider font-bold text-red-300">Canal A · {orbitaSession?.hostName || "Streamer A"}</p>
+                        <span className={`text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-md border ${orbitaHostParticipant ? "bg-red-500/20 text-red-200 border-red-500/40 orbita-onair-badge" : "bg-slate-700/30 text-slate-400 border-slate-600/40"}`}>
+                          {orbitaHostParticipant ? "ON AIR" : "OFFLINE"}
+                        </span>
+                      </div>
+                      <div className="px-1 mb-2 text-[9px] uppercase tracking-[0.16em] text-red-200/70 font-semibold flex items-center justify-between">
+                        <span>Freq 105.1</span>
+                        <span>Lat 42ms</span>
+                        <span>{orbitaHostParticipant ? "Link stable" : "Standby"}</span>
+                      </div>
+                      <div className="w-full max-w-[88%] mx-auto">
+                        {orbitaHostParticipant ? (
+                          <VideoTile
+                            participant={orbitaHostParticipant}
+                            isLocal={false}
+                            isStreamer
+                          />
+                        ) : (
+                          <div className="aspect-video rounded-2xl border border-slate-700 bg-slate-950 flex flex-col items-center justify-center text-slate-500 text-xs uppercase tracking-wider">
+                            Señal A apagada
+                          </div>
+                        )}
+                      </div>
+                      <div className="mt-2 rounded-lg border border-red-500/20 bg-black/50 px-2 py-1.5 text-[10px] text-red-200 font-bold uppercase tracking-wider text-center">
+                        Transmisor ORBITA A
+                        <div className="mt-1.5 flex items-end justify-center gap-1 h-4">
+                          {[20, 48, 36, 58, 32, 46, 24, 52].map((height, index) => (
+                            <span
+                              key={`orbita-a-${index}`}
+                              className="w-1 rounded-sm bg-gradient-to-t from-red-500 to-orange-300 orbita-eq-bar"
+                              style={{ height: `${height}%`, animationDelay: `${index * 0.08}s` }}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="w-full max-w-[420px] justify-self-end border border-orange-500/35 bg-black/40 p-3 orbita-panel-shell orbita-panel-b lg:col-start-3">
+                      <div className="orbita-crt-noise" />
+                      <div className="orbita-sweep-line orbita-sweep-line-delay" />
+                      <div className="flex items-center justify-between mb-2 px-1">
+                        <p className="text-[10px] uppercase tracking-wider font-bold text-orange-300">Canal B · {orbitaSession?.guestName || "Streamer B"}</p>
+                        <span className={`text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-md border ${orbitaGuestParticipant ? "bg-orange-500/20 text-orange-200 border-orange-500/40 orbita-onair-badge" : "bg-slate-700/30 text-slate-400 border-slate-600/40"}`}>
+                          {orbitaGuestParticipant ? "ON AIR" : "OFFLINE"}
+                        </span>
+                      </div>
+                      <div className="px-1 mb-2 text-[9px] uppercase tracking-[0.16em] text-orange-200/70 font-semibold flex items-center justify-between">
+                        <span>Freq 97.7</span>
+                        <span>Lat 39ms</span>
+                        <span>{orbitaGuestParticipant ? "Link stable" : "Standby"}</span>
+                      </div>
+                      <div className="w-full max-w-[88%] mx-auto">
+                        {orbitaGuestParticipant ? (
+                          <VideoTile
+                            participant={orbitaGuestParticipant}
+                            isLocal={false}
+                            isStreamer
+                          />
+                        ) : (
+                          <div className="aspect-video rounded-2xl border border-slate-700 bg-slate-950 flex flex-col items-center justify-center text-slate-500 text-xs uppercase tracking-wider">
+                            Señal B apagada
+                          </div>
+                        )}
+                      </div>
+                      <div className="mt-2 rounded-lg border border-orange-500/20 bg-black/50 px-2 py-1.5 text-[10px] text-orange-200 font-bold uppercase tracking-wider text-center">
+                        Transmisor ORBITA B
+                        <div className="mt-1.5 flex items-end justify-center gap-1 h-4">
+                          {[22, 42, 34, 56, 28, 44, 26, 50].map((height, index) => (
+                            <span
+                              key={`orbita-b-${index}`
+                              }
+                              className="w-1 rounded-sm bg-gradient-to-t from-orange-500 to-fuchsia-300 orbita-eq-bar"
+                              style={{ height: `${height}%`, animationDelay: `${index * 0.08}s` }}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="hidden lg:flex lg:col-start-2 relative items-center justify-center h-full">
+                      <OrbitaSignal />
+                    </div>
+                  </div>
+                </div>
+            </div>
+          )}
+
+          {role === "audience" && isAudiencePreviewOpen && audiencePreviewMode === "streamer" && (
             <div className="col-span-full h-[93vh] min-h-[560px] rounded-3xl border border-slate-800 bg-slate-900/45 backdrop-blur-md p-4 md:p-5">
               <div className="flex justify-start items-start h-full">
-                <div className={`w-full space-y-2 ${audiencePreviewMode === "orbita" ? "" : "sm:w-[60%] lg:w-[40%] xl:w-[25%]"}`}>
+                <div className="w-full sm:w-[60%] lg:w-[40%] xl:w-[25%] space-y-2">
                   <div className="flex items-center justify-between px-2">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-red-300">
-                      {audiencePreviewMode === "orbita" ? "Señal ORBITA" : "Vista seleccionada"}
-                    </p>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-red-300">Vista seleccionada</p>
                     <button
                       onClick={() => setIsAudiencePreviewOpen(false)}
                       className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300"
@@ -863,99 +966,7 @@ export default function RoomPage() {
                     </button>
                   </div>
 
-                  {audiencePreviewMode === "orbita" ? (
-                    <div className="relative rounded-2xl border border-red-500/25 bg-[radial-gradient(circle_at_center,_rgba(244,63,94,0.14),_rgba(2,6,23,0.92)_55%)] p-4 md:p-5 overflow-hidden">
-                      <div className="absolute inset-0 orbit-stars opacity-35 pointer-events-none" />
-                      <div className="absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-red-400/60 to-transparent" />
-                      {orbitaHostParticipant && orbitaGuestParticipant ? (
-                        <div className="relative grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
-                          <div className="rounded-2xl border border-red-500/35 bg-black/40 p-3 orbita-panel-shell orbita-panel-a">
-                            <div className="orbita-crt-noise" />
-                            <div className="orbita-sweep-line" />
-                            <div className="flex items-center justify-between mb-2 px-1">
-                              <p className="text-[10px] uppercase tracking-wider font-bold text-red-300">Canal A · {orbitaSession?.hostName || "Streamer A"}</p>
-                              <span className="text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-md bg-red-500/20 text-red-200 border border-red-500/40 orbita-onair-badge">ON AIR</span>
-                            </div>
-                            <div className="px-1 mb-2 text-[9px] uppercase tracking-[0.16em] text-red-200/70 font-semibold flex items-center justify-between">
-                              <span>Freq 105.1</span>
-                              <span>Lat 42ms</span>
-                              <span>Link stable</span>
-                            </div>
-                            <div className="w-full max-w-[88%] mx-auto orbita-video-well orbita-video-well-a">
-                              <div className="orbita-video-depth">
-                                <div className="orbita-video-mask">
-                                  <VideoTile
-                                    participant={orbitaHostParticipant}
-                                    isLocal={false}
-                                    isStreamer
-                                    frameless
-                                  />
-                                </div>
-                              </div>
-                            </div>
-                            <div className="mt-2 rounded-lg border border-red-500/20 bg-black/50 px-2 py-1.5 text-[10px] text-red-200 font-bold uppercase tracking-wider text-center">
-                              Transmisor ORBITA A
-                              <div className="mt-1.5 flex items-end justify-center gap-1 h-4">
-                                {[20, 48, 36, 58, 32, 46, 24, 52].map((height, index) => (
-                                  <span
-                                    key={`orbita-a-${index}`}
-                                    className="w-1 rounded-sm bg-gradient-to-t from-red-500 to-orange-300 orbita-eq-bar"
-                                    style={{ height: `${height}%`, animationDelay: `${index * 0.08}s` }}
-                                  />
-                                ))}
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="rounded-2xl border border-orange-500/35 bg-black/40 p-3 orbita-panel-shell orbita-panel-b">
-                            <div className="orbita-crt-noise" />
-                            <div className="orbita-sweep-line orbita-sweep-line-delay" />
-                            <div className="flex items-center justify-between mb-2 px-1">
-                              <p className="text-[10px] uppercase tracking-wider font-bold text-orange-300">Canal B · {orbitaSession?.guestName || "Streamer B"}</p>
-                              <span className="text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-md bg-orange-500/20 text-orange-200 border border-orange-500/40 orbita-onair-badge">ON AIR</span>
-                            </div>
-                            <div className="px-1 mb-2 text-[9px] uppercase tracking-[0.16em] text-orange-200/70 font-semibold flex items-center justify-between">
-                              <span>Freq 97.7</span>
-                              <span>Lat 39ms</span>
-                              <span>Link stable</span>
-                            </div>
-                            <div className="w-full max-w-[88%] mx-auto orbita-video-well orbita-video-well-b">
-                              <div className="orbita-video-depth">
-                                <div className="orbita-video-mask">
-                                  <VideoTile
-                                    participant={orbitaGuestParticipant}
-                                    isLocal={false}
-                                    isStreamer
-                                    frameless
-                                  />
-                                </div>
-                              </div>
-                            </div>
-                            <div className="mt-2 rounded-lg border border-orange-500/20 bg-black/50 px-2 py-1.5 text-[10px] text-orange-200 font-bold uppercase tracking-wider text-center">
-                              Transmisor ORBITA B
-                              <div className="mt-1.5 flex items-end justify-center gap-1 h-4">
-                                {[22, 42, 34, 56, 28, 44, 26, 50].map((height, index) => (
-                                  <span
-                                    key={`orbita-b-${index}`}
-                                    className="w-1 rounded-sm bg-gradient-to-t from-orange-500 to-fuchsia-300 orbita-eq-bar"
-                                    style={{ height: `${height}%`, animationDelay: `${index * 0.08}s` }}
-                                  />
-                                ))}
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="hidden lg:block orbita-beam-main" />
-                          <div className="hidden lg:block orbita-beam-pulse" />
-                          <div className="hidden lg:block orbita-beam-core" />
-                        </div>
-                      ) : (
-                        <div className="rounded-2xl border border-slate-700 bg-slate-950/70 p-4 text-sm text-slate-400">
-                          Señal ORBITA no disponible en este momento.
-                        </div>
-                      )}
-                    </div>
-                  ) : selectedAudienceParticipant ? (
+                  {selectedAudienceParticipant ? (
                     <VideoTile
                       participant={selectedAudienceParticipant}
                       isLocal={false}
