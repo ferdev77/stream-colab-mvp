@@ -353,6 +353,21 @@ body {
   }
 }
 
+@keyframes orbita-glass-glare {
+  0%,
+  100% {
+    transform: translateX(-160%) skewX(-18deg);
+    opacity: 0;
+  }
+  8% {
+    opacity: 0.16;
+  }
+  22% {
+    transform: translateX(180%) skewX(-18deg);
+    opacity: 0;
+  }
+}
+
 @keyframes orbita-sweep {
   0% {
     transform: translateY(-120%);
@@ -645,6 +660,88 @@ body {
 .orbita-eq-bar {
   animation: orbita-eq-dance 1.8s ease-in-out infinite;
   transform-origin: bottom center;
+}
+
+.orbita-video-well {
+  position: relative;
+  padding: 12px 11px 10px;
+  border-radius: 0;
+  clip-path: polygon(3% 0, 97% 0, 93% 100%, 7% 100%);
+  background: linear-gradient(155deg, rgba(30, 41, 59, 0.9), rgba(2, 6, 23, 0.98));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.09),
+    inset 0 -14px 24px rgba(0, 0, 0, 0.62),
+    0 14px 30px rgba(0, 0, 0, 0.48);
+  transform: perspective(980px) rotateX(2.2deg);
+}
+
+.orbita-video-well::before {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  clip-path: polygon(3% 0, 97% 0, 93% 100%, 7% 100%);
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.11), transparent 26%);
+}
+
+.orbita-video-well::after {
+  content: "";
+  position: absolute;
+  inset: 8px 9px;
+  clip-path: polygon(2.5% 0, 97.5% 0, 94% 100%, 6% 100%);
+  pointer-events: none;
+  box-shadow:
+    inset 0 0 0 1px rgba(148, 163, 184, 0.16),
+    inset 0 -22px 28px rgba(0, 0, 0, 0.34),
+    inset 0 16px 18px rgba(255, 255, 255, 0.03);
+}
+
+.orbita-video-well-a {
+  border: 1px solid rgba(248, 113, 113, 0.35);
+}
+
+.orbita-video-well-b {
+  border: 1px solid rgba(251, 146, 60, 0.35);
+}
+
+.orbita-video-depth {
+  position: relative;
+  clip-path: polygon(4% 0, 96% 0, 92% 100%, 8% 100%);
+  overflow: hidden;
+  box-shadow:
+    inset 0 0 0 1px rgba(15, 23, 42, 0.7),
+    inset 0 -20px 30px rgba(0, 0, 0, 0.42);
+}
+
+.orbita-video-depth::before {
+  content: "";
+  position: absolute;
+  top: -20%;
+  left: -35%;
+  width: 34%;
+  height: 150%;
+  pointer-events: none;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0));
+  mix-blend-mode: screen;
+  z-index: 2;
+  animation: orbita-glass-glare 7.4s ease-in-out infinite;
+}
+
+.orbita-video-depth::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  box-shadow:
+    inset 0 0 0 1px rgba(248, 250, 252, 0.08),
+    inset 0 -22px 26px rgba(2, 6, 23, 0.45),
+    inset 0 12px 18px rgba(248, 250, 252, 0.04);
+}
+
+.orbita-video-mask {
+  clip-path: polygon(5% 0, 95% 0, 91.5% 100%, 8.5% 100%);
+  overflow: hidden;
 }
 
 .orbita-crt-noise {

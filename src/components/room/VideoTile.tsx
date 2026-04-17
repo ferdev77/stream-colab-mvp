@@ -17,9 +17,10 @@ interface VideoTileProps {
   participant: VideoParticipant;
   isLocal?: boolean;
   isStreamer?: boolean;
+  frameless?: boolean;
 }
 
-export const VideoTile = ({ participant, isLocal = false, isStreamer = false }: VideoTileProps) => {
+export const VideoTile = ({ participant, isLocal = false, isStreamer = false, frameless = false }: VideoTileProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
 
@@ -40,7 +41,13 @@ export const VideoTile = ({ participant, isLocal = false, isStreamer = false }: 
   }, [audioTrack, isLocal]);
 
   return (
-    <div className="relative aspect-video bg-slate-900 rounded-2xl overflow-hidden border border-slate-800 shadow-lg group">
+    <div
+      className={`relative aspect-video overflow-hidden group ${
+        frameless
+          ? "bg-slate-900 rounded-lg"
+          : "bg-slate-900 rounded-2xl border border-slate-800 shadow-lg"
+      }`}
+    >
       {videoTrack ? (
         <video
           ref={videoRef}

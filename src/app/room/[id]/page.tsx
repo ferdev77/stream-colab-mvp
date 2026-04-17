@@ -881,12 +881,17 @@ export default function RoomPage() {
                               <span>Lat 42ms</span>
                               <span>Link stable</span>
                             </div>
-                            <div className="w-full max-w-[88%] mx-auto rounded-xl border border-red-500/25 bg-slate-950/75 p-1.5">
-                              <VideoTile
-                                participant={orbitaHostParticipant}
-                                isLocal={false}
-                                isStreamer
-                              />
+                            <div className="w-full max-w-[88%] mx-auto orbita-video-well orbita-video-well-a">
+                              <div className="orbita-video-depth">
+                                <div className="orbita-video-mask">
+                                  <VideoTile
+                                    participant={orbitaHostParticipant}
+                                    isLocal={false}
+                                    isStreamer
+                                    frameless
+                                  />
+                                </div>
+                              </div>
                             </div>
                             <div className="mt-2 rounded-lg border border-red-500/20 bg-black/50 px-2 py-1.5 text-[10px] text-red-200 font-bold uppercase tracking-wider text-center">
                               Transmisor ORBITA A
@@ -914,12 +919,17 @@ export default function RoomPage() {
                               <span>Lat 39ms</span>
                               <span>Link stable</span>
                             </div>
-                            <div className="w-full max-w-[88%] mx-auto rounded-xl border border-orange-500/25 bg-slate-950/75 p-1.5">
-                              <VideoTile
-                                participant={orbitaGuestParticipant}
-                                isLocal={false}
-                                isStreamer
-                              />
+                            <div className="w-full max-w-[88%] mx-auto orbita-video-well orbita-video-well-b">
+                              <div className="orbita-video-depth">
+                                <div className="orbita-video-mask">
+                                  <VideoTile
+                                    participant={orbitaGuestParticipant}
+                                    isLocal={false}
+                                    isStreamer
+                                    frameless
+                                  />
+                                </div>
+                              </div>
                             </div>
                             <div className="mt-2 rounded-lg border border-orange-500/20 bg-black/50 px-2 py-1.5 text-[10px] text-orange-200 font-bold uppercase tracking-wider text-center">
                               Transmisor ORBITA B
