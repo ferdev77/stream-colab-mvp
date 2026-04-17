@@ -181,7 +181,7 @@ export function ChatRoom({ roomId }: ChatRoomProps) {
   };
 
   return (
-    <div className="flex flex-col h-full bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-3xl overflow-hidden shadow-2xl">
+    <div className="w-full min-w-0 flex flex-col h-full bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-3xl overflow-hidden shadow-2xl">
       {/* Header */}
       <div className="p-4 border-b border-white/5 flex items-center justify-between bg-slate-900/80">
         <div className="flex items-center gap-2">

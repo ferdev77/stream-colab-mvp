@@ -35,7 +35,9 @@ export default function RootLayout({
         <div aria-hidden className="fixed inset-0 pointer-events-none cosmic-bg">
           <div className="cosmic-nebula" />
           <div className="cosmic-stars cosmic-stars-far" />
+          <div className="cosmic-stars cosmic-stars-dense" />
           <div className="cosmic-stars cosmic-stars-near" />
+          <div className="cosmic-stars cosmic-stars-sparkle" />
           <div className="cosmic-grid" />
           <div className="cosmic-signal cosmic-signal-a" />
           <div className="cosmic-signal cosmic-signal-b" />

@@ -26,3 +26,22 @@ Este documento detalla la coreografía entre los distintos servicios (Firebase, 
 1. **Conexión:** Al montar el componente de la sala, se escribe en `/presence/$roomId/$uid`.
 2. **Métricas:** RTDB dispara un evento a todos los clientes suscritos a `/presence/$roomId`, actualizando el contador de "Audiencia Online".
 3. **Desconexión:** Se configura `.info/connected` para ejecutar `onDisconnect().remove()` sobre el nodo de presencia. Esto garantiza que si el usuario cierra la pestaña, el contador baje automáticamente.
+
+## 5. Estados de Streamer (Contrato de UI)
+En la vista de audiencia, cada streamer cae en un único estado:
+
+1. **Offline:** no está conectado a la sala (`/presence/$roomId` no contiene al streamer).
+2. **Online:** está conectado a la sala, pero no está transmitiendo video/audio en vivo.
+3. **En vivo:** está conectado a la sala **y** transmitiendo en vivo.
+4. **ORBITA:** modo de señal compartida entre dos streamers conectados.
+
+Regla de evaluación:
+- `En vivo` requiere `Online` + tracks activos.
+- `Online` no implica `En vivo`.
+- `Offline` implica no conectado.
+
+## 6. ORBITA Efímera (sin rastro)
+- El nodo `rooms/$roomId/orbita` se crea solo mientras la sesión ORBITA está activa.
+- Al finalizar manualmente ORBITA, se elimina el nodo completo.
+- Si el host se desconecta inesperadamente, `onDisconnect().remove()` borra ORBITA automáticamente.
+- Si host o guest dejan de estar conectados, la app limpia ORBITA para evitar estado stale.

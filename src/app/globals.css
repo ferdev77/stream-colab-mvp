@@ -197,6 +197,46 @@ body {
   }
 }
 
+@keyframes cosmic-stars-sparkle {
+  0%,
+  100% {
+    opacity: 0.2;
+    filter: brightness(1);
+  }
+  10% {
+    opacity: 0.8;
+    filter: brightness(1.7);
+  }
+  14% {
+    opacity: 0.22;
+    filter: brightness(1.05);
+  }
+  28% {
+    opacity: 0.65;
+    filter: brightness(1.5);
+  }
+  33% {
+    opacity: 0.2;
+    filter: brightness(1);
+  }
+  52% {
+    opacity: 0.7;
+    filter: brightness(1.65);
+  }
+  58% {
+    opacity: 0.24;
+    filter: brightness(1.1);
+  }
+  76% {
+    opacity: 0.6;
+    filter: brightness(1.45);
+  }
+  82% {
+    opacity: 0.2;
+    filter: brightness(1);
+  }
+}
+
 @keyframes cosmic-signal-pass {
   0% {
     transform: scaleX(0.08);
@@ -276,6 +316,42 @@ body {
 .cosmic-stars-near {
   opacity: 0.6;
   background-size: 1050px 620px;
+}
+
+.cosmic-stars-dense {
+  background-image:
+    radial-gradient(1px 1px at 8px 14px, rgba(255, 255, 255, 0.75), transparent),
+    radial-gradient(1px 1px at 40px 52px, rgba(255, 255, 255, 0.68), transparent),
+    radial-gradient(1px 1px at 72px 22px, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(1px 1px at 96px 70px, rgba(255, 255, 255, 0.64), transparent),
+    radial-gradient(1px 1px at 128px 38px, rgba(255, 255, 255, 0.72), transparent),
+    radial-gradient(1px 1px at 164px 86px, rgba(255, 255, 255, 0.66), transparent),
+    radial-gradient(1px 1px at 190px 12px, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(1px 1px at 222px 56px, rgba(255, 255, 255, 0.62), transparent),
+    radial-gradient(1px 1px at 14px 106px, rgba(255, 255, 255, 0.68), transparent),
+    radial-gradient(1px 1px at 58px 134px, rgba(255, 255, 255, 0.72), transparent),
+    radial-gradient(1px 1px at 102px 114px, rgba(255, 255, 255, 0.64), transparent),
+    radial-gradient(1px 1px at 146px 152px, rgba(255, 255, 255, 0.7), transparent),
+    radial-gradient(1px 1px at 188px 126px, rgba(255, 255, 255, 0.66), transparent),
+    radial-gradient(1px 1px at 224px 166px, rgba(255, 255, 255, 0.74), transparent);
+  background-repeat: repeat;
+  background-size: 260px 200px;
+  opacity: 0.32;
+  animation: cosmic-depth-drift 36s linear infinite, cosmic-stars-twinkle-soft 7.2s ease-in-out infinite;
+}
+
+.cosmic-stars-sparkle {
+  background-image:
+    radial-gradient(2px 2px at 120px 90px, rgba(255, 255, 255, 0.98), transparent),
+    radial-gradient(2px 2px at 280px 210px, rgba(255, 255, 255, 0.96), transparent),
+    radial-gradient(2px 2px at 460px 140px, rgba(255, 255, 255, 0.98), transparent),
+    radial-gradient(2px 2px at 640px 300px, rgba(255, 255, 255, 0.96), transparent),
+    radial-gradient(2px 2px at 860px 190px, rgba(255, 255, 255, 0.98), transparent),
+    radial-gradient(2px 2px at 1020px 360px, rgba(255, 255, 255, 0.95), transparent);
+  background-repeat: repeat;
+  background-size: 1200px 700px;
+  mix-blend-mode: screen;
+  animation: cosmic-depth-drift 30s linear infinite, cosmic-stars-sparkle 5.4s steps(1, end) infinite;
 }
 
 .cosmic-grid {
