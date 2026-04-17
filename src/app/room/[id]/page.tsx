@@ -60,17 +60,24 @@ export default function RoomPage() {
   const effectiveCamOn = role === "streamer" ? isCamOn : false;
   const effectiveMicOn = role === "streamer" ? isMicOn : false;
 
+  const streamerProfileNames = useMemo(
+    () => new Set(streamerProfiles.map((streamer) => streamer.name)),
+    [streamerProfiles]
+  );
+
   const streamerNames = useMemo(() => {
     return participants
       .filter((participant) => {
+        const participantName = participant.user_name || "Streamer";
         const maybeOwner = (participant as { owner?: boolean }).owner;
         const hasVideoTrack = Boolean(participant.tracks?.video?.persistentTrack);
         const hasAudioTrack = Boolean(participant.tracks?.audio?.persistentTrack);
-        return maybeOwner || hasVideoTrack || hasAudioTrack;
+        const knownStreamerProfile = streamerProfileNames.has(participantName);
+        return knownStreamerProfile || maybeOwner || hasVideoTrack || hasAudioTrack;
       })
       .map((participant) => participant.user_name || "Streamer")
       .filter((name, index, array) => array.indexOf(name) === index);
-  }, [participants]);
+  }, [participants, streamerProfileNames]);
 
   const streamerStatusList = useMemo(() => {
     return streamerProfiles.map((streamer) => ({
@@ -107,10 +114,14 @@ export default function RoomPage() {
       return liveStreamerParticipants;
     }
 
-    return liveStreamerParticipants.filter((participant) => {
+    const orbitaParticipants = liveStreamerParticipants.filter((participant) => {
       const participantName = participant.user_name || "Streamer";
       return participantName === orbitaSession.hostName || participantName === orbitaSession.guestName;
     });
+
+    // Fallback: si la sesión ORBITA quedó stale o no matchea nombres,
+    // no bloqueamos la visualización de streamers en vivo para audiencia.
+    return orbitaParticipants.length > 0 ? orbitaParticipants : liveStreamerParticipants;
   }, [liveStreamerParticipants, orbitaSession]);
 
   const selectedAudienceParticipant = useMemo(() => {
