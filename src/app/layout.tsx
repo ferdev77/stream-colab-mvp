@@ -38,6 +38,7 @@ export default function RootLayout({
           <div className="cosmic-stars cosmic-stars-dense" />
           <div className="cosmic-stars cosmic-stars-near" />
           <div className="cosmic-stars cosmic-stars-sparkle" />
+          <div className="cosmic-stars cosmic-stars-accent" />
           <div className="cosmic-grid" />
           <div className="cosmic-signal cosmic-signal-a" />
           <div className="cosmic-signal cosmic-signal-b" />

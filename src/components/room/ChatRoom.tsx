@@ -243,18 +243,18 @@ export function ChatRoom({ roomId }: ChatRoomProps) {
       </div>
 
       {/* Input Area */}
-      <form onSubmit={sendMessage} className="p-4 bg-slate-950/50 border-t border-white/5">
+      <form onSubmit={sendMessage} className="p-3 bg-slate-950/50 border-t border-white/5">
         <div className="relative group">
           <input
             type="text"
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             placeholder="Escribe algo emocionante..."
-            className="w-full bg-slate-900 border border-slate-800 text-slate-200 text-sm rounded-2xl px-5 py-3.5 pr-14 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all placeholder:text-slate-600 group-hover:border-slate-700"
+            className="w-full bg-slate-900 border border-slate-800 text-slate-200 text-sm rounded-2xl px-5 py-3 pr-14 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all placeholder:text-slate-600 group-hover:border-slate-700"
           />
           <button
             type="submit"
-            className="absolute right-2 top-2 p-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-500 transition-all active:scale-95 shadow-lg shadow-indigo-600/20 disabled:opacity-50 disabled:active:scale-100"
+            className="absolute right-2 top-1.5 p-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-500 transition-all active:scale-95 shadow-lg shadow-indigo-600/20 disabled:opacity-50 disabled:active:scale-100"
             disabled={!newMessage.trim()}
           >
             <Send className="w-4 h-4" />

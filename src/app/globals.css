@@ -237,6 +237,26 @@ body {
   }
 }
 
+@keyframes cosmic-stars-accent-twinkle {
+  0%,
+  100% {
+    opacity: 0.46;
+    filter: brightness(1);
+  }
+  20% {
+    opacity: 0.9;
+    filter: brightness(1.45);
+  }
+  45% {
+    opacity: 0.58;
+    filter: brightness(1.1);
+  }
+  70% {
+    opacity: 0.95;
+    filter: brightness(1.6);
+  }
+}
+
 @keyframes cosmic-signal-pass {
   0% {
     transform: scaleX(0.08);
@@ -352,6 +372,43 @@ body {
   background-size: 1200px 700px;
   mix-blend-mode: screen;
   animation: cosmic-depth-drift 30s linear infinite, cosmic-stars-sparkle 5.4s steps(1, end) infinite;
+}
+
+.cosmic-stars-accent {
+  background-image:
+    radial-gradient(3px 3px at 3% 8%, rgba(244, 63, 94, 0.95), transparent),
+    radial-gradient(3px 3px at 8% 32%, rgba(249, 115, 22, 0.92), transparent),
+    radial-gradient(3px 3px at 12% 62%, rgba(217, 70, 239, 0.92), transparent),
+    radial-gradient(3px 3px at 16% 88%, rgba(251, 146, 60, 0.9), transparent),
+    radial-gradient(3px 3px at 21% 14%, rgba(236, 72, 153, 0.95), transparent),
+    radial-gradient(3px 3px at 25% 46%, rgba(248, 113, 113, 0.9), transparent),
+    radial-gradient(3px 3px at 29% 76%, rgba(251, 113, 133, 0.94), transparent),
+    radial-gradient(3px 3px at 33% 26%, rgba(249, 115, 22, 0.92), transparent),
+    radial-gradient(3px 3px at 37% 56%, rgba(217, 70, 239, 0.9), transparent),
+    radial-gradient(3px 3px at 41% 86%, rgba(244, 63, 94, 0.95), transparent),
+    radial-gradient(3px 3px at 46% 10%, rgba(251, 146, 60, 0.9), transparent),
+    radial-gradient(3px 3px at 50% 36%, rgba(236, 72, 153, 0.95), transparent),
+    radial-gradient(3px 3px at 54% 68%, rgba(249, 115, 22, 0.92), transparent),
+    radial-gradient(3px 3px at 58% 92%, rgba(244, 63, 94, 0.94), transparent),
+    radial-gradient(3px 3px at 62% 18%, rgba(217, 70, 239, 0.92), transparent),
+    radial-gradient(3px 3px at 66% 44%, rgba(251, 113, 133, 0.94), transparent),
+    radial-gradient(3px 3px at 70% 72%, rgba(251, 146, 60, 0.9), transparent),
+    radial-gradient(3px 3px at 74% 96%, rgba(236, 72, 153, 0.95), transparent),
+    radial-gradient(3px 3px at 78% 22%, rgba(244, 63, 94, 0.95), transparent),
+    radial-gradient(3px 3px at 82% 48%, rgba(249, 115, 22, 0.9), transparent),
+    radial-gradient(3px 3px at 86% 78%, rgba(217, 70, 239, 0.92), transparent),
+    radial-gradient(3px 3px at 90% 12%, rgba(251, 113, 133, 0.94), transparent),
+    radial-gradient(3px 3px at 94% 40%, rgba(236, 72, 153, 0.95), transparent),
+    radial-gradient(3px 3px at 97% 70%, rgba(251, 146, 60, 0.9), transparent),
+    radial-gradient(3px 3px at 6% 54%, rgba(244, 63, 94, 0.92), transparent),
+    radial-gradient(3px 3px at 19% 68%, rgba(249, 115, 22, 0.9), transparent),
+    radial-gradient(3px 3px at 31% 90%, rgba(217, 70, 239, 0.94), transparent),
+    radial-gradient(3px 3px at 47% 82%, rgba(251, 113, 133, 0.93), transparent),
+    radial-gradient(3px 3px at 64% 84%, rgba(236, 72, 153, 0.95), transparent),
+    radial-gradient(3px 3px at 88% 58%, rgba(249, 115, 22, 0.92), transparent);
+  background-repeat: no-repeat;
+  mix-blend-mode: screen;
+  animation: cosmic-stars-accent-twinkle 7.8s ease-in-out infinite;
 }
 
 .cosmic-grid {

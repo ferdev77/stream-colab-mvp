@@ -58,6 +58,8 @@ export default function RoomPage() {
   const [orbitaSession, setOrbitaSession] = useState<OrbitaSession | null>(null);
   const [selectedAudienceStreamerId, setSelectedAudienceStreamerId] = useState<string | null>(null);
   const [isAudiencePreviewOpen, setIsAudiencePreviewOpen] = useState(false);
+  const [selectedOrbitaGuestName, setSelectedOrbitaGuestName] = useState("");
+  const hasEnforcedStreamerEntryOffline = useRef(false);
   const previousMediaState = useRef<{ cam: boolean; mic: boolean }>({ cam: true, mic: true });
   const effectiveCamOn = role === "streamer" ? isCamOn : false;
   const effectiveMicOn = role === "streamer" ? isMicOn : false;
@@ -88,17 +90,6 @@ export default function RoomPage() {
     }));
   }, [streamerProfiles, streamerNames]);
 
-  const visibleParticipants = useMemo(() => {
-    if (role !== "audience") {
-      return participants;
-    }
-
-    return participants.filter((participant) => {
-      const participantName = participant.user_name || "Streamer";
-      return streamerNames.includes(participantName);
-    });
-  }, [participants, role, streamerNames]);
-
   const localParticipantName = useMemo(() => {
     const localParticipant = participants.find((participant) => participant.local);
     return localParticipant?.user_name || user?.displayName || "Streamer";
@@ -110,6 +101,10 @@ export default function RoomPage() {
       return streamerNames.includes(participantName);
     });
   }, [participants, streamerNames]);
+
+  const localStreamerParticipant = useMemo(() => {
+    return participants.find((participant) => participant.local) || null;
+  }, [participants]);
 
   const orbitaFilteredParticipants = useMemo(() => {
     if (!orbitaSession?.active) {
@@ -188,6 +183,16 @@ export default function RoomPage() {
     return audienceStreamerStatusList.filter((streamer) => streamer.status === "offline");
   }, [audienceStreamerStatusList]);
 
+  const streamerLiveRows = useMemo(
+    () => audienceStreamerStatusList.filter((streamer) => streamer.status === "live"),
+    [audienceStreamerStatusList]
+  );
+
+  const streamerOnlineRows = useMemo(
+    () => audienceStreamerStatusList.filter((streamer) => streamer.status === "online"),
+    [audienceStreamerStatusList]
+  );
+
   const selectedAudienceStreamerProfile = useMemo(() => {
     if (!selectedAudienceStreamerId) return null;
     return audienceStreamerStatusList.find((streamer) => streamer.uid === selectedAudienceStreamerId) || null;
@@ -209,13 +214,26 @@ export default function RoomPage() {
     );
   }, [role, orbitaFilteredParticipants, selectedAudienceStreamerId, selectedAudienceStreamerProfile]);
 
-  const orbitaGuestOptions = useMemo(() => {
-    return streamerStatusList
-      .filter((streamer) => streamer.isLive && streamer.name !== localParticipantName)
-      .map((streamer) => streamer.name);
-  }, [streamerStatusList, localParticipantName]);
+  const orbitaSelectableStreamers = useMemo(() => {
+    return audienceStreamerStatusList.filter(
+      (streamer) => streamer.name !== localParticipantName && streamer.status !== "offline"
+    );
+  }, [audienceStreamerStatusList, localParticipantName]);
 
-  const effectiveOrbitaGuestName = useMemo(() => orbitaGuestOptions[0] || "", [orbitaGuestOptions]);
+  const orbitaGuestOptions = useMemo(
+    () => orbitaSelectableStreamers.map((streamer) => streamer.name),
+    [orbitaSelectableStreamers]
+  );
+
+  const effectiveOrbitaGuestName = useMemo(() => {
+    if (orbitaGuestOptions.length === 0) {
+      return "";
+    }
+
+    return orbitaGuestOptions.includes(selectedOrbitaGuestName)
+      ? selectedOrbitaGuestName
+      : orbitaGuestOptions[0];
+  }, [orbitaGuestOptions, selectedOrbitaGuestName]);
 
   useEffect(() => {
     const usersRef = ref(db, "users");
@@ -312,7 +330,11 @@ export default function RoomPage() {
     }
   }, [authLoading, user, role, roomId, isJoined, stayOffline, joinRoom, router]);
 
-  const cleanupOrbitaIfNeeded = async () => {
+  useEffect(() => {
+    hasEnforcedStreamerEntryOffline.current = false;
+  }, [roomId, user?.uid, role]);
+
+  const cleanupOrbitaIfNeeded = React.useCallback(async () => {
     if (!user || role !== "streamer" || !orbitaSession?.active) {
       return;
     }
@@ -324,9 +346,9 @@ export default function RoomPage() {
     if (isHost || isGuestByUid || isGuestByName) {
       await remove(ref(db, `rooms/${roomId}/orbita`));
     }
-  };
+  }, [user, role, orbitaSession, localParticipantName, roomId]);
 
-  const hardDisconnectStream = async () => {
+  const hardDisconnectStream = React.useCallback(async () => {
     await cleanupOrbitaIfNeeded();
 
     if (callObject && isJoined) {
@@ -353,7 +375,33 @@ export default function RoomPage() {
     setIsMicOn(false);
     setIsStreamPaused(false);
     setBackgroundFilter("none");
-  };
+  }, [cleanupOrbitaIfNeeded, callObject, isJoined, backgroundFilter, leaveRoom]);
+
+  useEffect(() => {
+    if (authLoading || !user || role !== "streamer") {
+      return;
+    }
+
+    if (hasEnforcedStreamerEntryOffline.current) {
+      return;
+    }
+
+    hasEnforcedStreamerEntryOffline.current = true;
+
+    if (isJoined && callObject) {
+      try {
+        if (callObject.localVideo()) {
+          callObject.setLocalVideo(false);
+        }
+        if (callObject.localAudio()) {
+          callObject.setLocalAudio(false);
+        }
+        void callObject.leave();
+      } catch (error) {
+        console.error("No se pudo forzar entrada offline de streamer:", error);
+      }
+    }
+  }, [authLoading, user, role, isJoined, callObject]);
 
   const handleLeave = async () => {
     setStayOffline(false);
@@ -379,7 +427,7 @@ export default function RoomPage() {
 
     const guestName = effectiveOrbitaGuestName;
     if (!guestName) return;
-    const guestUid = streamerStatusList.find((streamer) => streamer.name === guestName)?.uid;
+    const guestUid = orbitaSelectableStreamers.find((streamer) => streamer.name === guestName)?.uid;
     const orbitaRef = ref(db, `rooms/${roomId}/orbita`);
 
     await set(orbitaRef, {
@@ -553,12 +601,105 @@ export default function RoomPage() {
             </div>
           </div>
 
-          <div />
+          <div className="flex items-center gap-2 bg-slate-900/70 border border-slate-800 rounded-2xl px-2 py-1.5">
+            <button
+              onClick={togglePauseStream}
+              className={`p-2 rounded-xl transition-all ${
+                isStreamPaused
+                  ? "bg-amber-500 text-slate-950 hover:bg-amber-400"
+                  : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+              }`}
+              title={isStreamPaused ? "Reanudar stream" : "Pausar stream"}
+            >
+              {isStreamPaused ? <PlayCircle className="w-4 h-4" /> : <PauseCircle className="w-4 h-4" />}
+            </button>
+
+            <button
+              onClick={toggleAudio}
+              className={`p-2 rounded-xl transition-all ${
+                isStreamPaused
+                  ? "bg-slate-900 text-slate-600"
+                  : effectiveMicOn
+                    ? "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                    : "bg-red-500 text-white"
+              }`}
+              title="Encender o apagar micrófono"
+            >
+              {effectiveMicOn ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
+            </button>
+
+            <button
+              onClick={toggleVideo}
+              className={`p-2 rounded-xl transition-all ${
+                isStreamPaused
+                  ? "bg-slate-900 text-slate-600"
+                  : effectiveCamOn
+                    ? "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                    : "bg-red-500 text-white"
+              }`}
+              title="Encender o apagar cámara"
+            >
+              {effectiveCamOn ? <Video className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}
+            </button>
+
+            <button
+              onClick={cycleBackgroundFilter}
+              disabled={!isJoined}
+              className={`p-2 rounded-xl transition-all ${
+                !isJoined
+                  ? "opacity-30 cursor-not-allowed bg-slate-900 text-slate-600"
+                  : backgroundFilter === "none"
+                    ? "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                    : backgroundFilter === "soft"
+                      ? "bg-amber-500/90 text-slate-950 hover:bg-amber-400"
+                      : "bg-red-500 text-white hover:bg-red-400"
+              }`}
+              title={`Filtro de fondo: ${backgroundFilter === "none" ? "apagado" : backgroundFilter === "soft" ? "suave" : "fuerte"}`}
+            >
+              <Sparkles className="w-4 h-4" />
+            </button>
+
+            <button
+              onClick={orbitaSession?.active ? handleStopOrbita : handleStartOrbita}
+              disabled={(orbitaSession?.active ? orbitaSession.hostUid !== user.uid : orbitaGuestOptions.length === 0) || !isJoined}
+              className={`p-2 rounded-xl transition-all ${
+                orbitaSession?.active
+                  ? "bg-amber-500/90 text-slate-950 hover:bg-amber-400"
+                  : "bg-red-500/90 text-white hover:bg-red-400"
+              } disabled:opacity-35 disabled:cursor-not-allowed`}
+              title={orbitaSession?.active ? "Finalizar conexión ORBITA" : "Entrar a la Orbita"}
+            >
+              <Link2 className="w-4 h-4" />
+            </button>
+
+            <div className="w-px h-6 bg-slate-800 mx-1" />
+
+            <button
+              onClick={isJoined ? handleGoOffline : handleReconnect}
+              className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                isJoined
+                  ? "bg-amber-500 hover:bg-amber-400 text-slate-950"
+                  : "bg-emerald-500 hover:bg-emerald-400 text-slate-950"
+              }`}
+              title="Conectar o desconectar sin salir del panel"
+            >
+              {isJoined ? <WifiOff className="w-4 h-4" /> : <RefreshCw className="w-4 h-4" />}
+              <span className="hidden lg:inline">{isJoined ? "Offline" : "Conectar"}</span>
+            </button>
+
+            <button
+              onClick={handleLeave}
+              className="px-3 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold transition-all flex items-center gap-1.5"
+            >
+              <PhoneOff className="w-4 h-4" />
+              <span className="hidden lg:inline">Salir</span>
+            </button>
+          </div>
         </header>
       )}
 
       {/* Main Content Area */}
-      <main className="flex-1 min-h-0 h-full relative flex flex-col md:flex-row p-4 gap-4 overflow-hidden">
+      <main className={`flex-1 min-h-0 h-full relative flex flex-col md:flex-row p-4 gap-4 ${role === "streamer" ? "overflow-visible" : "overflow-hidden"}`}>
         {/* Video Grid */}
         <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 auto-rows-min gap-4 overflow-y-auto pr-2 custom-scrollbar">
           {role === "audience" && !isAudiencePreviewOpen && (
@@ -709,7 +850,7 @@ export default function RoomPage() {
             </div>
           )}
 
-          {role === "streamer" && isOrbitaDualLive && orbitaHostParticipant && orbitaGuestParticipant && (
+          {role === "audience" && isOrbitaDualLive && orbitaHostParticipant && orbitaGuestParticipant && !isAudiencePreviewOpen && (
             <div className="col-span-full relative rounded-3xl border border-red-500/25 bg-black/40 p-4 md:p-5 backdrop-blur-md overflow-hidden">
               <div className="absolute inset-0 pointer-events-none orbit-stars opacity-30" />
               <div className="relative z-10 mb-4 flex items-center justify-between gap-3">
@@ -782,63 +923,139 @@ export default function RoomPage() {
             </div>
           )}
 
-          {!isJoined && stayOffline && role === "streamer" && (
-            <div className="col-span-full h-full flex flex-col items-center justify-center rounded-3xl border border-amber-500/30 bg-slate-900/55 p-8 text-center">
-              <WifiOff className="w-10 h-10 text-amber-400 mb-3" />
-              <h3 className="text-white text-xl font-bold mb-2">Modo offline activado</h3>
-              <p className="text-slate-400 max-w-xl mb-5">Estás dentro del panel, pero tu transmisión no está conectada.</p>
-              <button
-                onClick={handleReconnect}
-                className="px-5 py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold flex items-center justify-center gap-2"
-              >
-                <RefreshCw className="w-4 h-4" />
-                Conectar stream
-              </button>
-            </div>
-          )}
+          {role === "streamer" && (
+            <div className="col-span-full min-h-[78vh] flex flex-col items-start justify-start gap-3">
+              {isJoined && localStreamerParticipant ? (
+                <div className="w-full flex flex-col md:flex-row gap-3 items-start">
+                  <div className="w-full max-w-[360px] min-h-[220px] rounded-xl border border-amber-500/30 bg-slate-900/60 backdrop-blur-md p-2.5 text-left shrink-0">
+                    <div className="w-full h-full rounded-lg overflow-hidden border border-slate-800">
+                      <VideoTile
+                        key={localStreamerParticipant.user_id}
+                        participant={localStreamerParticipant}
+                        isLocal
+                        isStreamer
+                      />
+                    </div>
+                  </div>
 
-          {!isJoined && !stayOffline && (
-            <div className="col-span-full h-full flex flex-col items-center justify-center rounded-3xl border border-indigo-500/25 bg-slate-900/55 p-8 text-center">
-              <div className="relative w-20 h-20 mb-4">
-                <div className="absolute inset-0 bg-indigo-500 rounded-full animate-ping opacity-20" />
-                <div className="relative bg-slate-900 rounded-full w-20 h-20 flex items-center justify-center border border-slate-800">
-                  <Radio className="w-8 h-8 text-indigo-500 animate-pulse" />
+                  <div className="w-full max-w-[360px] min-h-[220px] rounded-xl border border-red-500/30 bg-red-500/8 backdrop-blur-md p-4">
+                    <h4 className="text-[10px] font-bold uppercase tracking-[0.18em] text-red-300 mb-2">Crear ORBITA</h4>
+                    <p className="text-xs text-slate-400 mb-3">Elegí streamer online o en vivo para señal compartida.</p>
+
+                    <select
+                      value={effectiveOrbitaGuestName}
+                      onChange={(event) => setSelectedOrbitaGuestName(event.target.value)}
+                      className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-200 mb-3"
+                    >
+                      {orbitaGuestOptions.length === 0 && <option value="">Sin streamers disponibles</option>}
+                      {orbitaGuestOptions.map((name) => (
+                        <option key={name} value={name}>{name}</option>
+                      ))}
+                    </select>
+
+                    <button
+                      onClick={orbitaSession?.active ? handleStopOrbita : handleStartOrbita}
+                      disabled={(orbitaSession?.active ? orbitaSession.hostUid !== user.uid : orbitaGuestOptions.length === 0)}
+                      className="w-full rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-sm px-4 py-2.5 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      {orbitaSession?.active ? "Finalizar ORBITA" : "Crear ORBITA"}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="w-full max-w-[360px] min-h-[220px] rounded-xl border border-amber-500/30 bg-slate-900/60 backdrop-blur-md p-5 text-left shrink-0">
+                  <div className="flex flex-col h-full justify-between gap-4">
+                    <div className="w-10 h-10 rounded-lg bg-amber-500/15 border border-amber-500/35 flex items-center justify-center shrink-0">
+                      <WifiOff className="w-5 h-5 text-amber-400" />
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="text-white text-base font-bold mb-1">Modo offline activado</h3>
+                      <p className="text-slate-400 text-sm">Estás dentro del panel, pero tu transmisión no está conectada.</p>
+                    </div>
+                    <button
+                      onClick={handleReconnect}
+                      className="w-full px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-sm font-bold flex items-center justify-center gap-2"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                      Conectar stream
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div className="mt-auto translate-y-[65px] w-full flex flex-col gap-3">
+                {isJoined && (
+                  <div className="rounded-xl border border-red-500/30 bg-red-500/8 p-3 min-h-[120px]">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="text-[10px] font-bold uppercase tracking-[0.18em] text-red-300">Mi ORBITA</h4>
+                    </div>
+
+                    {orbitaSession?.active ? (
+                      <div className="space-y-1">
+                        <p className="text-sm text-red-200 font-semibold">{orbitaSession.hostName} + {orbitaSession.guestName}</p>
+                        <p className="text-xs text-slate-400">Señal compartida activa</p>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-slate-500">No tenés una órbita activa.</p>
+                    )}
+                  </div>
+                )}
+
+                <div className="rounded-xl border border-rose-500/25 bg-rose-500/8 p-3 min-h-[150px]">
+                  <h4 className="text-[10px] font-bold uppercase tracking-[0.18em] text-rose-300 mb-2">Streamers en vivo</h4>
+                  {streamerLiveRows.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {streamerLiveRows.map((streamer) => (
+                        <div key={streamer.uid} className="w-[86px] rounded-lg border border-rose-500/30 bg-rose-500/10 px-2 py-2 flex flex-col items-center text-center">
+                          <div className="relative w-9 h-9 rounded-full bg-slate-900 border border-rose-500/35 flex items-center justify-center text-[10px] font-bold text-rose-200">
+                            {getInitials(streamer.name)}
+                            <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border border-slate-900 ${getStatusDotClass(streamer.status)} ${getStatusDotFxClass(streamer.status)}`} />
+                          </div>
+                          <p className="mt-1 text-[11px] text-rose-200 font-medium leading-tight break-words">{streamer.name}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-500">Sin streamers en vivo.</p>
+                  )}
+                </div>
+
+                <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/8 p-3 min-h-[150px]">
+                  <h4 className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-300 mb-2">Streamers online</h4>
+                  {streamerOnlineRows.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {streamerOnlineRows.map((streamer) => (
+                        <div key={streamer.uid} className="w-[86px] rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2 py-2 flex flex-col items-center text-center">
+                          <div className="relative w-9 h-9 rounded-full bg-slate-900 border border-emerald-500/35 flex items-center justify-center text-[10px] font-bold text-emerald-200">
+                            {getInitials(streamer.name)}
+                            <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border border-slate-900 ${getStatusDotClass(streamer.status)} ${getStatusDotFxClass(streamer.status)}`} />
+                          </div>
+                          <p className="mt-1 text-[11px] text-emerald-200 font-medium leading-tight break-words">{streamer.name}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-500">Sin streamers online.</p>
+                  )}
                 </div>
               </div>
-              <h3 className="text-white text-xl font-bold mb-2">Conectando transmisión...</h3>
-              <p className="text-slate-400 max-w-xl">Preparando audio, video y señal de sala.</p>
             </div>
           )}
-
-          {isJoined && !isOrbitaDualLive && role === "streamer" && visibleParticipants.map((p) => (
-            <VideoTile
-              key={p.user_id}
-              participant={p}
-              isLocal={p.local}
-              isStreamer={streamerNames.includes(p.user_name || "Streamer")}
-            />
-          ))}
 
           {isJoined && !isOrbitaDualLive && role === "audience" && orbitaFilteredParticipants.length === 0 && null}
-
-          {isJoined && !isOrbitaDualLive && role === "streamer" && visibleParticipants.length === 0 && (
-            <div className="col-span-full h-full flex items-center justify-center">
-              <p className="text-slate-500 italic">Esperando a los participantes...</p>
-            </div>
-          )}
         </div>
 
         {/* Sidebar / Chat Area */}
-        <div className={`w-full md:w-80 lg:w-96 min-h-0 max-h-full shrink-0 flex ${role === "audience" ? "h-full self-stretch md:h-[calc(100dvh-2rem)]" : "h-full"}`}>
-          <div className="flex-1 min-h-0 h-full grid grid-rows-[auto_auto_minmax(0,1fr)] gap-3">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 shrink-0">
-              <div className="flex items-center gap-2 px-3 py-2 rounded-full bg-slate-900 border border-slate-800 text-slate-300">
+        <div className={`relative z-30 w-full md:w-80 lg:w-96 min-h-0 shrink-0 flex ${role === "audience" ? "h-full self-stretch md:h-[calc(100dvh-2rem)] max-h-full" : "h-full overflow-visible"}`}>
+          <div className={`flex-1 min-h-0 h-full grid grid-rows-[auto_auto_minmax(0,1fr)] ${role === "streamer" ? "gap-1.5" : "gap-3"}`}>
+            <div className={`grid grid-cols-1 sm:grid-cols-3 shrink-0 ${role === "streamer" ? "gap-1" : "gap-2"}`}>
+              <div className={`flex items-center gap-2 px-3 rounded-full bg-slate-900 border border-slate-800 text-slate-300 ${role === "streamer" ? "py-1" : "py-2"}`}>
                 <Radio className="w-4 h-4 text-red-400" />
                 <span className="text-xs font-medium truncate">
                   {streamerStatusList.filter((streamer) => streamer.isLive).length} Streamers en vivo
                 </span>
               </div>
-              <div className="flex items-center gap-2 px-3 py-2 rounded-full bg-slate-900 border border-slate-800 text-slate-300">
+              <div className={`flex items-center gap-2 px-3 rounded-full bg-slate-900 border border-slate-800 text-slate-300 ${role === "streamer" ? "py-1" : "py-2"}`}>
                 <Users className="w-4 h-4 text-indigo-400" />
                 <span className="text-xs font-medium truncate">{audienceNames.length} Audiencia conectada</span>
               </div>
@@ -857,12 +1074,12 @@ export default function RoomPage() {
                 </div>
               )}
             </div>
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/70 backdrop-blur-md p-4 shrink-0">
+            <div className={`rounded-2xl border border-slate-800 bg-slate-900/70 backdrop-blur-md shrink-0 ${role === "streamer" ? "p-2.5" : "p-4"}`}>
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-bold uppercase tracking-wider text-slate-200">Audiencia</h3>
                 <span className="text-xs text-slate-400">{audienceNames.length} viewers</span>
               </div>
-              <div className="space-y-1.5 max-h-28 overflow-y-auto custom-scrollbar pr-1">
+              <div className={`space-y-1.5 overflow-y-auto custom-scrollbar pr-1 ${role === "streamer" ? "max-h-16" : "max-h-28"}`}>
                 {audienceNames.map((viewerName) => (
                   <div
                     key={viewerName}
@@ -876,7 +1093,7 @@ export default function RoomPage() {
                 )}
               </div>
             </div>
-            <div className={`min-h-0 w-full overflow-hidden ${role === "audience" ? "h-[calc(108dvh-19rem)] min-h-[580px]" : "h-full"}`}>
+            <div className={`min-h-0 w-full ${role === "audience" ? "overflow-hidden h-[calc(108dvh-19rem)] min-h-[580px]" : "overflow-visible h-[107%] min-h-[660px]"}`}>
               <div className="w-full h-full">
                 <ChatRoom roomId={roomId} />
               </div>
@@ -885,114 +1102,6 @@ export default function RoomPage() {
         </div>
       </main>
 
-      {/* Controls Bar */}
-      {role === "streamer" && (
-        <footer className="h-24 bg-gradient-to-t from-slate-950 to-transparent flex items-center justify-center px-6 relative z-20">
-          <div className="bg-slate-900/80 backdrop-blur-2xl border border-white/5 px-8 pt-4 pb-4 rounded-3xl shadow-2xl flex items-center gap-6 -translate-y-4">
-          <button
-            onClick={togglePauseStream}
-            disabled={role !== "streamer"}
-            className={`p-4 rounded-2xl transition-all ${
-              role !== "streamer"
-                ? "opacity-30 cursor-not-allowed bg-slate-900 text-slate-600"
-                : isStreamPaused
-                  ? "bg-amber-500 text-slate-950 hover:bg-amber-400"
-                  : "bg-slate-800 text-slate-300 hover:bg-slate-700"
-            }`}
-            title={isStreamPaused ? "Reanudar stream" : "Pausar stream"}
-          >
-            {isStreamPaused ? <PlayCircle className="w-6 h-6" /> : <PauseCircle className="w-6 h-6" />}
-          </button>
-
-          <button
-            onClick={toggleAudio}
-            disabled={role !== "streamer"}
-            className={`p-4 rounded-2xl transition-all ${
-              role !== "streamer"
-                ? "opacity-30 cursor-not-allowed bg-slate-900 text-slate-600"
-                : isStreamPaused
-                  ? "bg-slate-900 text-slate-600"
-                  : effectiveMicOn
-                  ? "bg-slate-800 text-slate-300 hover:bg-slate-700"
-                  : "bg-red-500 text-white"
-            }`}
-            title="Encender o apagar micrófono"
-          >
-            {effectiveMicOn ? <Mic className="w-6 h-6" /> : <MicOff className="w-6 h-6" />}
-          </button>
-          
-          <button
-            onClick={toggleVideo}
-            disabled={role !== "streamer"}
-            className={`p-4 rounded-2xl transition-all ${
-              role !== "streamer" ? "opacity-30 cursor-not-allowed bg-slate-900 text-slate-600" :
-              isStreamPaused ? "bg-slate-900 text-slate-600" :
-              effectiveCamOn ? "bg-slate-800 text-slate-300 hover:bg-slate-700" : "bg-red-500 text-white"
-            }`}
-            title="Encender o apagar cámara"
-          >
-            {effectiveCamOn ? <Video className="w-6 h-6" /> : <VideoOff className="w-6 h-6" />}
-          </button>
-
-          <button
-            onClick={cycleBackgroundFilter}
-            disabled={role !== "streamer" || !isJoined}
-            className={`p-4 rounded-2xl transition-all ${
-              role !== "streamer" || !isJoined
-                ? "opacity-30 cursor-not-allowed bg-slate-900 text-slate-600"
-                : backgroundFilter === "none"
-                  ? "bg-slate-800 text-slate-300 hover:bg-slate-700"
-                  : backgroundFilter === "soft"
-                    ? "bg-amber-500/90 text-slate-950 hover:bg-amber-400"
-                    : "bg-red-500 text-white hover:bg-red-400"
-            }`}
-            title={`Filtro de fondo: ${backgroundFilter === "none" ? "apagado" : backgroundFilter === "soft" ? "suave" : "fuerte"}`}
-          >
-            <Sparkles className="w-6 h-6" />
-          </button>
-
-          <button
-            onClick={orbitaSession?.active ? handleStopOrbita : handleStartOrbita}
-            disabled={
-              (orbitaSession?.active ? orbitaSession.hostUid !== user.uid : orbitaGuestOptions.length === 0) ||
-              !isJoined
-            }
-            className={`p-4 rounded-2xl transition-all ${
-              orbitaSession?.active
-                ? "bg-amber-500/90 text-slate-950 hover:bg-amber-400"
-                : "bg-red-500/90 text-white hover:bg-red-400"
-            } disabled:opacity-35 disabled:cursor-not-allowed`}
-            title={orbitaSession?.active ? "Finalizar conexión ORBITA" : "Entrar a la Orbita"}
-          >
-            <Link2 className="w-6 h-6" />
-          </button>
-
-          <div className="w-px h-10 bg-slate-800 mx-2" />
-
-          {role === "streamer" && (
-            <button
-              onClick={isJoined ? handleGoOffline : handleReconnect}
-              className={`px-5 py-4 rounded-2xl font-bold transition-all flex items-center gap-2 active:scale-95 ${isJoined
-                ? "bg-amber-500 hover:bg-amber-400 text-slate-950"
-                : "bg-emerald-500 hover:bg-emerald-400 text-slate-950"
-                }`}
-              title="Conectar o desconectar sin salir del panel"
-            >
-              {isJoined ? <WifiOff className="w-5 h-5" /> : <RefreshCw className="w-5 h-5" />}
-              <span className="hidden md:inline">{isJoined ? "Quedar offline" : "Conectar stream"}</span>
-            </button>
-          )}
-
-          <button
-            onClick={handleLeave}
-            className="px-6 py-4 rounded-2xl bg-red-600 hover:bg-red-500 text-white font-bold transition-all flex items-center gap-2 shadow-lg shadow-red-600/20 active:scale-95"
-          >
-            <PhoneOff className="w-6 h-6" />
-            <span className="hidden md:inline">Salir de la sala</span>
-          </button>
-          </div>
-        </footer>
-      )}
     </div>
   );
 }
