@@ -148,7 +148,20 @@ export const DailyProvider = ({ children }: { children: React.ReactNode }) => {
 
   const leaveRoom = async () => {
     if (!callObject) return;
-    await callObject.leave();
+
+    try {
+      if (callObject.localVideo()) {
+        callObject.setLocalVideo(false);
+      }
+      if (callObject.localAudio()) {
+        callObject.setLocalAudio(false);
+      }
+      await callObject.leave();
+    } catch (error) {
+      console.error("Error leaving Daily room:", error);
+      setIsJoined(false);
+      setParticipants([]);
+    }
   };
 
   return (

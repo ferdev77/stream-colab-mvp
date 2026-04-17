@@ -16,7 +16,8 @@ import {
   PlayCircle,
   WifiOff,
   RefreshCw,
-  Link2
+  Link2,
+  Sparkles
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useDaily } from "@/context/DailyContext";
@@ -34,6 +35,7 @@ interface OrbitaSession {
   hostName: string;
   guestName: string;
   hostUid: string;
+  guestUid?: string;
   updatedAt: number;
 }
 
@@ -47,6 +49,7 @@ export default function RoomPage() {
   const [isMicOn, setIsMicOn] = useState(true);
   const [isStreamPaused, setIsStreamPaused] = useState(false);
   const [stayOffline, setStayOffline] = useState(true);
+  const [backgroundFilter, setBackgroundFilter] = useState<"none" | "soft" | "strong">("none");
   const [streamerProfiles, setStreamerProfiles] = useState<StreamerProfile[]>([]);
   const [audienceNames, setAudienceNames] = useState<string[]>([]);
   const [orbitaSession, setOrbitaSession] = useState<OrbitaSession | null>(null);
@@ -227,6 +230,7 @@ export default function RoomPage() {
         hostName: data.hostName,
         guestName: data.guestName,
         hostUid: data.hostUid,
+        guestUid: data.guestUid,
         updatedAt: typeof data.updatedAt === "number" ? data.updatedAt : Date.now(),
       });
     });
@@ -252,15 +256,58 @@ export default function RoomPage() {
     }
   }, [authLoading, user, role, roomId, isJoined, stayOffline, joinRoom, router]);
 
+  const cleanupOrbitaIfNeeded = async () => {
+    if (!user || role !== "streamer" || !orbitaSession?.active) {
+      return;
+    }
+
+    const isHost = orbitaSession.hostUid === user.uid;
+    const isGuestByUid = orbitaSession.guestUid === user.uid;
+    const isGuestByName = orbitaSession.guestName === localParticipantName;
+
+    if (isHost || isGuestByUid || isGuestByName) {
+      await remove(ref(db, `rooms/${roomId}/orbita`));
+    }
+  };
+
+  const hardDisconnectStream = async () => {
+    await cleanupOrbitaIfNeeded();
+
+    if (callObject && isJoined) {
+      if (backgroundFilter !== "none") {
+        try {
+          await callObject.updateInputSettings({
+            video: { processor: { type: "none" } },
+          });
+        } catch (error) {
+          console.error("No se pudo limpiar el filtro de fondo:", error);
+        }
+      }
+
+      try {
+        callObject.setLocalVideo(false);
+        callObject.setLocalAudio(false);
+      } catch (error) {
+        console.error("No se pudieron apagar tracks locales antes de salir:", error);
+      }
+    }
+
+    await leaveRoom();
+    setIsCamOn(false);
+    setIsMicOn(false);
+    setIsStreamPaused(false);
+    setBackgroundFilter("none");
+  };
+
   const handleLeave = async () => {
     setStayOffline(false);
-    await leaveRoom();
+    await hardDisconnectStream();
     router.push("/dashboard");
   };
 
   const handleGoOffline = async () => {
     setStayOffline(true);
-    await leaveRoom();
+    await hardDisconnectStream();
   };
 
   const handleReconnect = () => {
@@ -276,12 +323,14 @@ export default function RoomPage() {
 
     const guestName = effectiveOrbitaGuestName;
     if (!guestName) return;
+    const guestUid = streamerStatusList.find((streamer) => streamer.name === guestName)?.uid;
 
     await set(ref(db, `rooms/${roomId}/orbita`), {
       active: true,
       hostName: localParticipantName,
       guestName,
       hostUid: user.uid,
+      guestUid,
       updatedAt: serverTimestamp(),
     });
 
@@ -332,6 +381,40 @@ export default function RoomPage() {
     setIsCamOn(previousMediaState.current.cam);
     setIsMicOn(previousMediaState.current.mic);
     setIsStreamPaused(false);
+  };
+
+  const cycleBackgroundFilter = async () => {
+    if (!callObject || role !== "streamer" || !isJoined) return;
+
+    const nextFilter =
+      backgroundFilter === "none"
+        ? "soft"
+        : backgroundFilter === "soft"
+          ? "strong"
+          : "none";
+
+    try {
+      if (nextFilter === "none") {
+        await callObject.updateInputSettings({
+          video: { processor: { type: "none" } },
+        });
+      } else {
+        await callObject.updateInputSettings({
+          video: {
+            processor: {
+              type: "background-blur",
+              config: {
+                strength: nextFilter === "soft" ? 0.45 : 0.9,
+              },
+            },
+          },
+        });
+      }
+
+      setBackgroundFilter(nextFilter);
+    } catch (error) {
+      console.error("Error al aplicar blur de fondo:", error);
+    }
   };
 
   if (authLoading) {
@@ -723,6 +806,23 @@ export default function RoomPage() {
             title="Encender o apagar cámara"
           >
             {effectiveCamOn ? <Video className="w-6 h-6" /> : <VideoOff className="w-6 h-6" />}
+          </button>
+
+          <button
+            onClick={cycleBackgroundFilter}
+            disabled={role !== "streamer" || !isJoined}
+            className={`p-4 rounded-2xl transition-all ${
+              role !== "streamer" || !isJoined
+                ? "opacity-30 cursor-not-allowed bg-slate-900 text-slate-600"
+                : backgroundFilter === "none"
+                  ? "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                  : backgroundFilter === "soft"
+                    ? "bg-amber-500/90 text-slate-950 hover:bg-amber-400"
+                    : "bg-red-500 text-white hover:bg-red-400"
+            }`}
+            title={`Filtro de fondo: ${backgroundFilter === "none" ? "apagado" : backgroundFilter === "soft" ? "suave" : "fuerte"}`}
+          >
+            <Sparkles className="w-6 h-6" />
           </button>
 
           <div className="w-px h-10 bg-slate-800 mx-2" />
